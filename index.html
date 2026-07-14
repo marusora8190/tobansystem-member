@@ -135,7 +135,7 @@
 
 <header class="app-header">
   <h1>支障日申請</h1>
-  <div class="subtitle">神殿奉仕当番表作成システム（詰員用）</div>
+  <div class="subtitle">神殿奉仕当番表作成システム（勤務者用）</div>
 </header>
 
 <div class="wrap">
@@ -143,7 +143,7 @@
   <!-- ログイン画面 -->
   <div id="login-view" class="card">
     <div class="card-title">ログインパスワードを入力してください</div>
-    <input id="login-code" type="password" inputmode="numeric" pattern="\d*" maxlength="4" autocomplete="off" aria-label="ログインパスワード">
+    <input id="login-code" type="password" inputmode="numeric" pattern="\d*" maxlength="4" autocomplete="off" aria-label="ログインパスワード" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}">
     <div class="checkbox-row">
       <input type="checkbox" id="remember-me">
       <label for="remember-me" style="margin:0">この端末を記憶する（次回から自動ログイン）</label>
@@ -170,7 +170,6 @@
         <div class="name" id="badge-name"></div>
         <div class="dept" id="badge-dept"></div>
       </div>
-      <button class="logout-link" onclick="doLogout()">別の人でログイン</button>
     </div>
 
     <div class="card">
@@ -195,7 +194,7 @@
 
       <div class="legend">
         <span><span class="sw" style="background:var(--danger-light);border:1.5px solid var(--danger)"></span>登録済み（確認待ち）</span>
-        <span><span class="sw" style="background:#e3f2d6;border:1.5px solid #7cb342"></span>確認済み（管理者確認）</span>
+        <span><span class="sw" style="background:#e3f2d6;border:1.5px solid #7cb342"></span>確認済み（当番表作成者）</span>
         <span><span class="sw" style="background:#fff3b0;border:1.5px solid #d4af00"></span>登録予定（未保存）</span>
         <span><span class="sw" style="background:#eee;border:1.5px solid #bbb"></span>取消予定（未保存）</span>
       </div>
@@ -462,7 +461,7 @@ function updateConfirmBanner() {
     banner.textContent = `✓ 管理者が確認しました（${total}件すべて確認済み）`;
   } else {
     banner.className = 'confirm-banner pending';
-    banner.textContent = `管理者の確認待ちです（確認済み ${confirmed}／${total}件）`;
+    banner.textContent = `当番表作成者の確認待ちです（確認済み ${confirmed}／${total}件）`;
   }
 }
 
