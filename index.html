@@ -212,7 +212,7 @@
     </div>
 
     <div class="footer-note">
-      登録内容の最終確認・変更は管理者にもご確認いただけます。<br>
+      登録内容の最終確認・変更は当番表作成者にもご確認いただけます。<br>
       ご不明な点があれば担当者までお問い合わせください。
     </div>
   </div>
@@ -234,7 +234,7 @@ let holidays = {};
 let currentMember = null;   // { id, member_no, name, department, phone }
 let calYear, calMonth;      // 1-12
 let registeredDates = new Set();
-let confirmedDates = new Set();   // 管理者が確認済みにした支障日（registeredDatesの部分集合）
+let confirmedDates = new Set();   // 当番表作成者が確認済みにした支障日（registeredDatesの部分集合）
 let pendingAdd = new Set();
 let pendingRemove = new Set();
 
@@ -314,7 +314,7 @@ async function doLogin() {
   try {
     const matches = await findMembersByCode(code);
     if (matches.length === 0) {
-      showMsg('login-msg', 'この番号に一致する詰員が見つかりませんでした。管理者にご確認ください。', 'error');
+      showMsg('login-msg', 'この番号に一致する詰員が見つかりませんでした。当番表作成者にご確認ください。', 'error');
       return;
     }
     if (matches.length === 1) {
@@ -405,7 +405,7 @@ async function fetchRegisteredDates(dayList) {
 // =============================================
 // 1月〜11月：その月の10日 16:00 で締切（それ以降その月の支障日は変更不可）
 // 12月：12月7日 16:00 で締切
-// 締切を過ぎた月は、詰員本人による追加・取消ができなくなる（管理者は引き続き変更可）。
+// 締切を過ぎた月は、詰員本人による追加・取消ができなくなる（当番表作成者は引き続き変更可）。
 function getMonthDeadline(year, month) {
   if (month === 12) return new Date(year, 11, 7, 16, 0, 0, 0);
   return new Date(year, month - 1, 10, 16, 0, 0, 0);
@@ -486,7 +486,7 @@ function applyLockState(locked) {
   }
 }
 
-// 表示中の月について、管理者の確認状況をまとめて上部に表示する。
+// 表示中の月について、当番表作成者の確認状況をまとめて上部に表示する。
 // 保存済みの登録状態（registeredDates / confirmedDates）を基準に判定する。
 function updateConfirmBanner() {
   const banner = document.getElementById('confirm-status-banner');
@@ -497,7 +497,7 @@ function updateConfirmBanner() {
   registeredDates.forEach(d => { if (confirmedDates.has(d)) confirmed++; });
   if (confirmed >= total) {
     banner.className = 'confirm-banner ok';
-    banner.textContent = `✓ 管理者が確認しました（${total}件すべて確認済み）`;
+    banner.textContent = `✓ 当番表作成者が確認しました（${total}件すべて確認済み）`;
   } else {
     banner.className = 'confirm-banner pending';
     banner.textContent = `当番表作成者の確認待ちです（確認済み ${confirmed}／${total}件）`;
