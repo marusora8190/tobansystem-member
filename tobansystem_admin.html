@@ -1,0 +1,3782 @@
+﻿<!DOCTYPE html>
+<html lang="ja" translate="no">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+  <meta name="google" content="notranslate">
+  <meta http-equiv="Content-Language" content="ja">
+  <script>
+    Object.defineProperty(document, 'documentElement', {
+      get: function() { return document.getElementsByTagName('html')[0]; }
+    });
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        if (m.target && m.target.classList) {
+          m.target.classList.remove('translated-ltr', 'translated-rtl');
+        }
+      });
+    });
+    document.addEventListener('DOMContentLoaded', function() {
+      observer.observe(document.documentElement, { attributes: true, subtree: false });
+      document.querySelectorAll('font').forEach(function(el) {
+        var parent = el.parentNode;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+      });
+    });
+  </script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神殿奉仕当番表作成システム（勤務者）</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f9f7f4;
+    --surface: #ffffff;
+    --border: #e4e0d8;
+    --border-strong: #c8c2b4;
+    --text: #1a1814;
+    --text-muted: #6b6560;
+    --text-hint: #9e9890;
+    --accent: #4a5e3a;
+    --accent-light: #e8eedf;
+    --accent-dark: #2e3d22;
+    --gold: #8b6914;
+    --gold-light: #f5edd6;
+    --danger: #e89090;
+    --danger-light: #fceaea;
+    --info: #1a4a7a;
+    --info-light: #e6eef7;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; }
+
+  /* Layout */
+  .app-header { background: var(--accent-dark); color: #fff; padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 56px; }
+  .app-header h1 { font-size: 16px; font-weight: 500; letter-spacing: 0.05em; }
+  .app-header .subtitle { font-size: 12px; opacity: 0.6; }
+  .layout { display: flex; height: calc(100vh - 56px); }
+  .sidebar { width: 200px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 0; flex-shrink: 0; overflow-y: auto; transition: width 0.15s ease, padding 0.15s ease, border-color 0.15s ease; }
+  /* サイドバーを非表示にして、表が画面を最大限に使えるようにする */
+  .sidebar.collapsed { width: 0; padding-top: 16px; padding-bottom: 16px; padding-left: 0; padding-right: 0; border-right-color: transparent; overflow: hidden; }
+  .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: all 0.15s; border-left: 3px solid transparent; white-space: nowrap; }
+  .sidebar-item:hover { background: var(--bg); color: var(--text); }
+  .sidebar-item.active { color: var(--accent-dark); background: var(--accent-light); border-left-color: var(--accent); font-weight: 500; }
+  .sidebar-icon { font-size: 16px; }
+  .main { flex: 1; overflow-y: auto; padding: 24px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Cards & Sections */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section-title { font-size: 16px; font-weight: 500; margin-bottom: 16px; color: var(--text); }
+
+  /* Forms */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  input, select, textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; font-size: 13px; color: var(--text); background: var(--surface); font-family: inherit; transition: border-color 0.15s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  .btn { padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 500; color: var(--text-hint); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge-green { background: var(--accent-light); color: var(--accent-dark); }
+
+  /* 詰員名簿：1行あたりの高さを最小に */
+  .members-table th { padding: 4px 8px; }
+  .members-table td { padding: 2px 6px; }
+  .members-table input { padding: 3px 6px; font-size: 12px; }
+  .members-table .btn-sm { padding: 2px 8px; font-size: 11px; }
+  .members-table .badge { padding: 1px 6px; font-size: 10px; }
+
+  /* 新しいメンバーを追加：入力欄・ボタンの行の高さを最小限にする */
+  #member-add-card .form-group { gap: 2px; }
+  #member-add-card input { padding: 3px 8px; font-size: 12px; }
+  #member-add-card .btn { padding: 4px 10px; font-size: 12px; }
+  #member-add-card #member-msg { font-size: 12px; }
+  .badge-gold { background: var(--gold-light); color: var(--gold); }
+  .badge-red { background: var(--danger-light); color: var(--danger); }
+  .badge-blue { background: var(--info-light); color: var(--info); }
+
+  /* 日曜祝日等管理：各エリア（カード・表・フォーム）の行の高さを最小限にする */
+  #page-holidays .card { padding: 6px 10px; margin-bottom: 6px; }
+  #page-holidays .card-title { margin-bottom: 4px; }
+  #page-holidays .alert { padding: 6px 10px; margin-bottom: 6px; }
+  #page-holidays p { margin-bottom: 4px; }
+  #page-holidays .form-grid { gap: 4px; }
+  #page-holidays .form-group { gap: 0; }
+  #page-holidays .form-group label { line-height: 1.2; }
+  #page-holidays input, #page-holidays select { padding: 3px 8px; font-size: 12px; }
+  #page-holidays .btn { padding: 4px 10px; font-size: 12px; }
+  #page-holidays .btn-row { margin-top: 4px; gap: 6px; }
+  #page-holidays [id$="-msg"] { margin-top: 4px !important; font-size: 12px; }
+  #page-holidays table th { padding: 1px 6px; }
+  #page-holidays table td { padding: 0 6px; }
+  #page-holidays table tr td, #page-holidays table tr th { line-height: 1.1; }
+  #page-holidays table td .btn-sm { padding: 1px 6px; font-size: 11px; }
+
+  /* 支障日登録：「登録状況」・「支障日を追加（当番表作成者入力）」の
+     各エリアの行の高さ・余白を最小限にする */
+  #page-unavailable .section-title { margin-bottom: 8px; }
+  #page-unavailable .alert { padding: 6px 10px; margin-bottom: 8px; }
+  #page-unavailable .card { padding: 10px 14px; margin-bottom: 8px; }
+  #page-unavailable .card-title { margin-bottom: 6px; }
+  #page-unavailable .form-grid { gap: 6px; margin-bottom: 8px !important; }
+  #page-unavailable .form-group { gap: 2px; }
+  #page-unavailable .btn-row { margin-top: 8px; }
+  #page-unavailable #unavail-summary { gap: 3px; }
+  #page-unavailable #unavail-summary > div { padding: 2px 8px !important; }
+  #page-unavailable #unavail-cal-wrap { margin-bottom: 8px !important; }
+
+  /* 登録済み支障日一覧：全員が見やすいよう、表の上にあるエリアの余白を最小限にし、
+     一覧表になるべく広い表示スペースを確保する */
+  #page-unavail-list .section-title { margin-bottom: 8px; }
+  #page-unavail-list .card { padding: 6px 10px; margin-bottom: 6px; }
+  #page-unavail-list .card-title { margin-bottom: 2px; }
+  #page-unavail-list input, #page-unavail-list select { padding: 3px 8px; font-size: 12px; }
+  #page-unavail-list .btn { padding: 4px 10px; font-size: 12px; }
+
+  /* 割当確認（表形式）：「表示設定」エリアと当番記録テーブルの行の高さを最小限にする */
+  #page-records .card { padding: 8px 12px; margin-bottom: 8px; }
+  #page-records .card-title { margin-bottom: 6px; }
+  #page-records .form-group label { margin-bottom: 0; font-size: 11px; }
+  #page-records select, #page-records input { padding: 3px 6px; font-size: 12px; }
+  #page-records .btn { padding: 4px 10px; font-size: 12px; }
+
+
+  /* Matrix Table Custom Styles：登録済み支障日一覧（一覧表形式）が全員にとって見やすいよう、
+     列幅・行の高さを最小限に詰める */
+  .matrix-table th { text-align: center; padding: 3px 1px; font-size: 9px; line-height: 1.3; min-width: 15px; border: 1px solid var(--border); }
+  .matrix-table td { text-align: center; padding: 3px 0; line-height: 1.3; border: 1px solid var(--border); }
+  .matrix-cell-clickable { cursor: pointer; transition: background 0.1s; font-size: 13px; }
+  .matrix-cell-clickable:hover { background: #fee2e2 !important; }
+
+  /* 支障日一覧表：下にスクロールしても見出し行（日にち・曜日）と
+     先頭3列（氏名・回数・日祝）が固定表示されるようにする。
+     専用ページになったため、表示エリアをできるだけ広く確保する */
+  .unavail-matrix-wrap { overflow-y: auto; max-height: calc(100vh - 260px); min-height: 240px; border: 1px solid var(--border); border-radius: var(--radius); }
+  .unavail-matrix-wrap .matrix-table { border-collapse: separate; border-spacing: 0; }
+  .unavail-matrix-wrap .matrix-table thead th { position: sticky; top: 0; z-index: 5; background: var(--bg); }
+  .unavail-matrix-wrap .matrix-table td:nth-child(1),
+  .unavail-matrix-wrap .matrix-table th:nth-child(1) { position: sticky; left: 0; z-index: 4; background: var(--surface); }
+  .unavail-matrix-wrap .matrix-table td:nth-child(2),
+  .unavail-matrix-wrap .matrix-table th:nth-child(2) { position: sticky; left: var(--unavail-col2-left, 44px); z-index: 4; background: var(--surface); }
+  .unavail-matrix-wrap .matrix-table td:nth-child(3),
+  .unavail-matrix-wrap .matrix-table th:nth-child(3) { position: sticky; left: var(--unavail-col3-left, 64px); z-index: 4; background: var(--surface); }
+  .unavail-matrix-wrap .matrix-table thead th:nth-child(1),
+  .unavail-matrix-wrap .matrix-table thead th:nth-child(2),
+  .unavail-matrix-wrap .matrix-table thead th:nth-child(3) { z-index: 11; background: var(--bg); }
+
+  /* Annual Plan Table: vertical column dividers */
+  .annual-table th, .annual-table td { border-right: 1px solid var(--border); }
+  .annual-table th:last-child, .annual-table td:last-child { border-right: none; }
+
+  /* Annual Plan Table: 縦横両方のstickyヘッダー */
+  .annual-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 210px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .annual-wrap.annual-wrap-compact {
+    max-height: calc(100vh - 165px);
+  }
+  .annual-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: max-content;
+    min-width: 100%;
+  }
+  /* theadを縦スクロールで固定 */
+  .annual-table thead th {
+    position: sticky;
+    background: var(--surface);
+    z-index: 5;
+    text-align: center;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .annual-table thead tr:first-child th { top: 0; }
+  .annual-table thead tr:last-child th { top: var(--annual-head1-h, 36px); box-shadow: 0 2px 0 var(--border); }
+  /* 氏名・項目列を横スクロールで固定 */
+  .annual-table td:first-child,
+  .annual-table th:first-child { position: sticky; left: 0; z-index: 4; background: var(--surface); border-right: 1px solid var(--border-strong); }
+  .annual-table td:nth-child(2),
+  .annual-table th:nth-child(2) { position: sticky; left: 80px; z-index: 4; background: var(--surface); border-right: 1px solid var(--border); }
+  /* 左上の角（sticky同士の重なり）を最前面に */
+  .annual-table thead th:first-child,
+  .annual-table thead th:nth-child(2) { z-index: 11; }
+
+  /* 項目列がなく氏名列のみ固定したいテーブル用：2列目の横方向stickyを無効化
+     ※theadの1行目・2行目はrowspan(氏名・合計)の影響でnth-child(2)が実際には
+       「年グループ見出し」や「2月」のセルになるため、theadには適用しない
+       （適用すると縦方向のstickyまで消えて、スクロール時に見出しが消える不具合になる） */
+  .annual-table-1col tbody td:nth-child(2) { position: static; left: auto; }
+  .annual-table-1col thead th:nth-child(2) { position: sticky; left: auto; z-index: 5; }
+  .annual-table-1col .year-group-th { background: #eef3e6; }
+
+  /* 月ごとの当番回数②：メンバーを横、月を縦に並べた転置レイアウト用テーブル */
+  .mc2-table th, .mc2-table td { border-right: 1px solid var(--border); }
+  .mc2-table th:last-child, .mc2-table td:last-child { border-right: none; }
+  .mc2-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+  .mc2-table thead th {
+    position: sticky; background: var(--surface); z-index: 5; text-align: center;
+    border-bottom: 1px solid var(--border-strong);
+    will-change: transform; backface-visibility: hidden; transform: translateZ(0);
+  }
+  .mc2-table thead tr:first-child th { top: 0; }
+  .mc2-table thead tr:last-child th { top: var(--mc2-head1-h, 32px); box-shadow: 0 2px 0 var(--border); }
+  /* 年度・月・日数（相当）の3列を横スクロールで固定
+     ※nth-childは、見出し2行目（メンバー氏名などrowspanの陰に隠れる行）や合計行（colspan=3）で
+       実際のセル位置とズレて誤爆する（＝横スクロール時に崩れる原因）ため、
+       専用クラス（mc2-col1/2/3）を付与したセルにのみ適用する形に変更 */
+  /* 年度・月・日数の3列は、幅を狭くしすぎるとテキストが折り返して
+     縦につぶれたように見えてしまうため、常に1行で収まるようにする
+     （折り返しが必要な場合は列幅の方を自動的に広げる） */
+  .mc2-table .mc2-col1, .mc2-table .mc2-col2, .mc2-table .mc2-col3 {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    /* 横スクロール中にブラウザの再描画が追いつかず、下に隠れているはずの
+       セルが透けて見える不具合を防ぐため、固定列を独立した描画レイヤーにする */
+    will-change: transform; backface-visibility: hidden; transform: translateZ(0);
+  }
+  .mc2-table .mc2-col1 { position: sticky; left: 0; z-index: 4; background: var(--surface); border-right: 1px solid var(--border-strong); }
+  .mc2-table .mc2-col2 { position: sticky; left: var(--mc2-col2-left, 50px); z-index: 4; background: var(--surface); border-right: 1px solid var(--border); }
+  .mc2-table .mc2-col3 { position: sticky; left: var(--mc2-col3-left, 80px); z-index: 4; background: var(--surface); border-right: 1px solid var(--border-strong); }
+  .mc2-table thead .mc2-col1, .mc2-table thead .mc2-col2, .mc2-table thead .mc2-col3 { z-index: 11; }
+  .mc2-table tr.mc2-total-row td { background: #dbe7f5 !important; color: #1a4971; border-top: 3px double #8a8370; }
+
+  /* 月ごとの当番回数②・各メンバーの年間設定：
+     .mc2-tableの min-width:100% により、メンバー数が少ないと各列（回数・日祝など）が
+     余白を埋めるように必要以上に広がってしまうため、これらのページでは
+     列幅が指定した最小値のまま広がらないようにする。
+     ※日祝当番月（複数年）は1人あたりの列が1列のみで済むため、メンバー数が多いと
+       画面に全員分が収まりきってしまい、逆に右側が不自然な空白になることがある。
+       そのため、この表だけは他の2ページと違い、空いた分だけ各列がわずかに広がって
+       右側の空白ができないようにする（列数が多いぶん、1列あたりの広がりはわずかで済む）。 */
+  #page-mc2 .mc2-table,
+  #page-annual-single2 .mc2-table { min-width: 0; }
+
+  /* Calendar */
+  /* カレンダー表示：画面の高さに合わせて、1日〜末日（最大6週分）まで
+     スクロールせずに一度に見えるよう、週の行の高さを可変にして画面内に収める */
+  #page-calendar.page.active { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+  #page-calendar .cal-nav,
+  #page-calendar .section-title,
+  #page-calendar #print-scale-hint,
+  #page-calendar #cal-dow,
+  #page-calendar .cal-legend { flex: none; }
+  #page-calendar #cal-body { flex: 1 1 auto; min-height: 0; grid-auto-rows: minmax(0, 1fr); overflow-y: auto; }
+  .cal-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .cal-title { font-size: 16px; font-weight: 500; flex: 1; text-align: center; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-dow { text-align: center; font-size: 11px; font-weight: 500; color: var(--text-hint); padding: 4px; }
+  .cal-dow:first-child { color: #e89090; }
+  .cal-dow:last-child { color: var(--info); }
+  .cal-day { min-height: 0; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px; cursor: pointer; transition: all 0.15s; position: relative; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; overflow: hidden; }
+  .cal-day:hover { border-color: var(--accent); background: var(--accent-light); }
+  .cal-day.sunday .cal-date { color: #e89090; }
+  .cal-day.holiday .cal-date { color: #e89090; }
+  .cal-day.sunday, .cal-day.holiday { background: var(--danger-light); }
+  .cal-day.sunday:hover, .cal-day.holiday:hover { background: #f6d5d5; }
+  .cal-day.saturday .cal-date { color: var(--info); }
+  /* 日付と祝日名を1行にまとめて表示する（別行にすると、当番者名の行が
+     つぶれて見えなくなってしまう週があったため、行数を増やさないようにする） */
+  .cal-date-row { display: flex; align-items: baseline; gap: 4px; overflow: hidden; min-width: 0; }
+  .cal-date { font-size: 12px; font-weight: 500; flex-shrink: 0; }
+  .cal-holiday-name { font-size: 9px; color: #e89090; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  
+  .cal-member-box { display: flex; flex-direction: column; border-radius: 4px; padding: 4px 5px; font-size: 11px; background: transparent; border: 1px solid var(--border-strong); color: var(--text); line-height: 1.3; width: 100%; }
+  .cal-member-box.holiday-duty { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .cal-day-body { flex: 1; display: flex; align-items: center; justify-content: center; }
+  
+  .cal-member-name-row { display: flex; align-items: center; justify-content: center; gap: 3px; }
+  .cal-member-name { font-weight: 600; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+  .cal-lock-btn { border: none; background: transparent; cursor: pointer; font-size: 10px; line-height: 1; padding: 0 1px; flex-shrink: 0; opacity: 0.45; }
+  .cal-lock-btn:hover { opacity: 1; }
+  .cal-lock-btn.locked { opacity: 1; }
+  .gen-lock-btn { border: none; background: transparent; cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; flex-shrink: 0; opacity: 0.45; }
+  .gen-lock-btn:hover { opacity: 1; }
+  .gen-lock-btn.locked { opacity: 1; }
+
+  .cal-empty { min-height: 0; }
+
+  /* Rules */
+  .rules-list { list-style: none; padding: 0; }
+  .rules-list li { padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+  .rules-list li:last-child { border-bottom: none; }
+  .rule-check { color: var(--accent); font-size: 16px; }
+  /* 作成プレビュー表：1行あたりの高さを最小に */
+  .gen-preview-table th { padding: 4px 8px; }
+  .gen-preview-table td { padding: 3px 8px; }
+
+  /* Alert */
+  .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 12px; }
+  .alert-success { background: var(--accent-light); color: var(--accent-dark); border: 1px solid #c8d8b4; }
+  .alert-error { background: var(--danger-light); color: var(--danger); border: 1px solid #f0b8b8; }
+  .alert-info { background: var(--info-light); color: var(--info); border: 1px solid #b8cfe8; }
+
+  /* Modal */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 400px; max-width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  .modal h3 { font-size: 15px; font-weight: 500; margin-bottom: 16px; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  @media (max-width: 700px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 0; }
+    .sidebar-item { padding: 12px 14px; border-left: none; border-bottom: 3px solid transparent; font-size: 12px; }
+    .sidebar-item.active { border-left: none; border-bottom-color: var(--accent); }
+    .form-grid { grid-template-columns: 1fr; }
+    .cal-day { min-height: 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:2000;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 28px;width:100%;max-width:320px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:15px;font-weight:600;color:var(--text);">神殿奉仕当番表作成システム</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">ご自身の部署内線番号を入力してください</div>
+    </div>
+    <input id="login-password" type="password" inputmode="numeric" pattern="\d*" maxlength="4" style="margin-bottom:12px;" onkeydown="if(event.key==='Enter') checkLoginPassword()">
+    <button class="btn btn-primary" style="width:100%;" onclick="checkLoginPassword()">ログイン</button>
+    <div id="login-msg" style="margin-top:10px;font-size:12px;color:var(--danger);min-height:16px;text-align:center;"></div>
+  </div>
+</div>
+
+<div id="app-content" style="display:none;">
+
+<header class="app-header">
+  <button class="btn btn-sm" id="sidebar-toggle-btn" title="メニューの表示/非表示を切り替え" style="border-color:rgba(255,255,255,0.3);color:#fff;background:rgba(255,255,255,0.1)" onclick="toggleSidebar()">☰</button>
+    <div>
+    <h1>神殿奉仕当番表作成システム（勤務者）</h1>
+    <div class="subtitle">Temple Duty Schedule</div>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
+    <span id="conn-status" style="font-size:12px;opacity:0.7">未接続</span>
+    <button class="btn btn-sm" style="border-color:rgba(255,255,255,0.3);color:#fff;background:rgba(255,255,255,0.1)" onclick="showConfigModal()">⚙ 設定</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-item active" onclick="showPage('calendar')">カレンダー</div>
+    <div class="sidebar-item" onclick="showPage('members')">詰員名簿</div>
+    <div class="sidebar-item" onclick="showPage('mc2')">月ごと当番回数</div>
+    <div class="sidebar-item" onclick="showPage('mh2')">日祝当番月（複数年）</div>
+    <div class="sidebar-item" onclick="showPage('annual-single2')">各メンバー年間設定</div>
+    <div class="sidebar-item" onclick="showPage('unavailable')">支障日登録</div>
+    <div class="sidebar-item" onclick="showPage('unavail-list')">登録済み支障日一覧</div>
+    <div class="sidebar-item" onclick="showPage('generate')">当番表作成</div>
+    <div class="sidebar-item" onclick="showPage('gen-rules')">作成ルール</div>
+    <div class="sidebar-item" onclick="showPage('records')">割当確認</div>
+    <div class="sidebar-item" onclick="showPage('holidays')">日曜祝日等管理</div>
+    <div class="sidebar-item" onclick="showPage('chotome')">本部祭典日・本部お勤め時間</div>
+  </nav>
+
+  <main class="main">
+    <div id="page-calendar" class="page active">
+      <div class="section-title">カレンダー表示</div>
+      <div class="cal-nav">
+        <button class="btn btn-sm" onclick="prevMonth()">◀</button>
+        <div class="cal-title" id="cal-title">2026年 1月</div>
+        <button class="btn btn-sm" onclick="nextMonth()">▶</button>
+        <button class="btn btn-sm" onclick="goToCurrentMonth()">今月</button>
+        <button class="btn btn-sm" onclick="exportCSV()">CSV出力</button>
+        <button class="btn btn-sm" onclick="printCalendar()">🖨 印刷①</button>
+      </div>
+      <div id="print-scale-hint" style="font-size:12px;color:#1a1814;margin-top:-8px;margin-bottom:12px"></div>
+
+      <div class="cal-grid" id="cal-dow"></div>
+      <div class="cal-grid" id="cal-body" style="margin-top:4px"></div>
+      <div class="cal-legend" style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text-muted)"><span style="background:transparent;border:1px solid var(--border-strong);padding:1px 6px;border-radius:3px;font-size:11px">氏名</span> 平日</span>
+        <span style="font-size:12px;color:var(--text-muted)"><span style="background:var(--gold);color:#fff;padding:1px 6px;border-radius:3px;font-size:11px">氏名</span> 日祝</span>
+      </div>
+    </div>
+
+    <div id="page-members" class="page">
+      <div class="section-title">詰員名簿管理</div>
+      <div class="card" id="member-add-card" style="padding:6px 10px;margin-bottom:8px">
+        <div class="card-title" style="margin-bottom:3px">新しいメンバーを追加</div>
+        <div class="form-grid" style="grid-template-columns:repeat(4, 1fr);gap:6px">
+          <div class="form-group"><label>ID</label><input id="m-no" placeholder="例: 23"></div>
+          <div class="form-group"><label>氏名 *</label><input id="m-name" placeholder="山本 和幸"></div>
+          <div class="form-group"><label>部署</label><input id="m-dept" placeholder="運営課"></div>
+          <div class="form-group"><label>電話番号</label><input id="m-phone" placeholder="5401"></div>
+        </div>
+        <div class="btn-row" style="margin-top:4px">
+          <button class="btn btn-primary" onclick="addMember()">追加する</button>
+        </div>
+        <div id="member-msg" style="margin-top:2px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">メンバー一覧 <span id="member-count" style="font-size:12px;color:var(--text-hint)"></span></div>
+        <div class="table-wrap">
+          <table class="members-table">
+            <thead><tr><th>ID</th><th>氏名</th><th>部署</th><th>電話</th><th>状態</th><th></th></tr></thead>
+            <tbody id="members-body"><tr><td colspan="6" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="page-mc2" class="page">
+      <div class="section-title" style="margin-bottom:2px;font-size:14px;">月ごとの当番回数（メンバー横並び表示）</div>
+      <div class="card" style="padding:4px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="card-title" style="margin-bottom:0;white-space:nowrap;font-size:11px;">開始年度</div>
+        <select id="mc2-start-year" onchange="loadAndRenderMultiCount2()" style="width:100px;padding:2px 6px;font-size:12px;">
+          <option value="2026" selected>2026年</option>
+          <option value="2027">2027年</option>
+          <option value="2028">2028年</option>
+          <option value="2029">2029年</option>
+          <option value="2030">2030年</option>
+          <option value="2031">2031年</option>
+          <option value="2032">2032年</option>
+          <option value="2033">2033年</option>
+          <option value="2034">2034年</option>
+        </select>
+        <div class="card-title" style="margin-bottom:0;white-space:nowrap;font-size:11px;">表示年数</div>
+        <select id="mc2-year-span" onchange="loadAndRenderMultiCount2()" style="width:80px;padding:2px 6px;font-size:12px;">
+          <option value="2">2年分</option>
+          <option value="3" selected>3年分</option>
+        </select>
+        <button class="btn btn-sm" onclick="loadAndRenderMultiCount2()">再読み込み</button>
+        <button class="btn btn-primary btn-sm" onclick="saveMultiCountPlans2()">この表示期間をまとめて保存</button>
+        <span style="font-size:10px;color:var(--text-muted);">この表示期間の変更は、他のページ（日祝当番月・各メンバーの年間設定）にもその場で反映されます</span>
+      </div>
+      <div id="multi-count2-msg" style="margin-bottom:2px"></div>
+      <div class="annual-wrap annual-wrap-compact" style="max-height:calc(100vh - 128px)">
+        <table class="mc2-table">
+          <thead id="multi-count2-head"></thead>
+          <tbody id="multi-count2-body"><tr><td style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="page-mh2" class="page">
+      <div class="section-title">日祝当番月（複数年）（メンバー横並び表示）</div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">
+        メンバーを横に、年度/月を縦に並べたレイアウトで日祝当番の月を編集できます。
+      </p>
+      <div class="card" style="padding:12px 20px;margin-bottom:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div class="card-title" style="margin-bottom:0;white-space:nowrap;">開始年度</div>
+        <select id="mh2-start-year" onchange="loadAndRenderMultiHol2()" style="width:110px">
+          <option value="2026" selected>2026年</option>
+          <option value="2027">2027年</option>
+          <option value="2028">2028年</option>
+          <option value="2029">2029年</option>
+          <option value="2030">2030年</option>
+          <option value="2031">2031年</option>
+          <option value="2032">2032年</option>
+          <option value="2033">2033年</option>
+          <option value="2034">2034年</option>
+        </select>
+        <div class="card-title" style="margin-bottom:0;white-space:nowrap;">表示年数</div>
+        <select id="mh2-year-span" onchange="loadAndRenderMultiHol2()" style="width:90px">
+          <option value="2">2年分</option>
+          <option value="3" selected>3年分</option>
+        </select>
+        <button class="btn btn-sm" onclick="loadAndRenderMultiHol2()">再読み込み</button>
+      </div>
+      <div class="card" style="padding-bottom:14px;">
+        <div class="annual-wrap annual-wrap-compact">
+          <table class="mc2-table">
+            <thead id="mh2-head"></thead>
+            <tbody id="mh2-body"><tr><td style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn btn-primary" onclick="saveMultiHolPlans2()">この表示期間をまとめて保存</button>
+        </div>
+        <div id="mh2-msg" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div id="page-annual-single2" class="page">
+      <div class="section-title">各メンバーの年間設定（メンバー横並び表示）</div>
+      <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">
+        メンバーを横に・月を縦に並べたレイアウトで、年間の当番予定を編集できます。
+      </p>
+      <div class="card" style="padding:6px 14px;margin-bottom:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div class="card-title" style="margin-bottom:0;white-space:nowrap;">開始年度</div>
+        <select id="annual2-start-year" onchange="loadAndRenderAnnualTable2()" style="width:110px">
+          <option value="2026" selected>2026年</option>
+          <option value="2027">2027年</option>
+          <option value="2028">2028年</option>
+          <option value="2029">2029年</option>
+          <option value="2030">2030年</option>
+          <option value="2031">2031年</option>
+          <option value="2032">2032年</option>
+          <option value="2033">2033年</option>
+          <option value="2034">2034年</option>
+          <option value="2035">2035年</option>
+        </select>
+        <div class="card-title" style="margin-bottom:0;white-space:nowrap;">表示年数</div>
+        <select id="annual2-year-span" onchange="loadAndRenderAnnualTable2()" style="width:90px">
+          <option value="2">2年分</option>
+          <option value="3" selected>3年分</option>
+        </select>
+        <button class="btn btn-sm" onclick="loadAndRenderAnnualTable2()">再読み込み</button>
+      </div>
+      <div class="card" style="padding-bottom:14px;">
+        <div class="card-title" style="margin-bottom:6px;">📌 各メンバーの年間設定</div>
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">月ごとの当番回数（0=身上等／1=通常／2=通常または他の人の代わりに当番）と日祝当番の月を設定できます。各行の右端で当番人数合計・日祝当番人数合計が日数と一致しているか自動チェックします（<span style="color:#2e7d32;font-weight:600">✓一致</span> / <span style="color:#e89090;font-weight:600">✗不一致</span>）。</p>
+        <div class="annual-wrap annual-wrap-compact">
+          <table class="mc2-table">
+            <thead id="annual2-head"></thead>
+            <tbody id="annual2-body"><tr><td style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="btn-row" style="align-items:center">
+          <div class="card-title" style="margin-bottom:0;white-space:nowrap;">保存・自動配分の対象年度</div>
+          <select id="annual2-target-year" style="width:110px"></select>
+          <button class="btn btn-primary" onclick="saveAnnualPlanForYear2()">年間予定を保存</button>
+          <button class="btn" onclick="autoDistributeForYear2()">自動均等配分 ↗</button>
+        </div>
+        <div id="annual2-msg" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div id="page-unavailable" class="page">
+      <div class="section-title">支障日登録</div>
+      <div class="alert alert-info">メンバーごとの支障日を登録・確認できます。下のカレンダーで日付をクリックして登録してください。</div>
+
+      <div class="card">
+        <div class="card-title">📊 登録状況・確認</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <input id="u-summary-month" type="month" onchange="onUnavailMonthChange()" style="width:150px">
+          <button class="btn btn-sm" onclick="onUnavailMonthChange()">更新</button>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.4">支障日が登録されている詰員の「確認」ボタンを押すと、その詰員の当月の支障日が「確認済み」になり、詰員本人の画面にも確認済みと表示されます。</p>
+        <div id="unavail-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px"></div>
+        <div id="unavail-confirm-msg" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">支障日を追加（当番表作成者入力）</div>
+        <div class="form-grid" style="margin-bottom:12px">
+          <div class="form-group">
+            <label>メンバー *</label>
+            <select id="u-member" onchange="renderUnavailCalendar()"><option value="">選択してください</option></select>
+          </div>
+          <div class="form-group">
+            <label>対象月 *</label>
+            <div style="display:flex;gap:4px;align-items:center">
+              <button class="btn btn-sm" onclick="shiftMonth('u-cal-month',-1);renderUnavailCalendar()">◀</button>
+              <input id="u-cal-month" type="month" onchange="renderUnavailCalendar()" style="width:130px">
+              <button class="btn btn-sm" onclick="shiftMonth('u-cal-month',1);renderUnavailCalendar()">▶</button>
+            </div>
+          </div>
+        </div>
+        <div id="unavail-cal-wrap" style="margin-bottom:12px">
+          <p style="color:var(--text-hint);font-size:13px">メンバーと対象月を選択するとカレンダーが表示されます。</p>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="addUnavailableBulk()">選択した日をまとめて登録</button>
+          <button class="btn" onclick="clearUnavailSelection()">選択をリセット</button>
+          <button class="btn btn-danger" onclick="clearRegisteredForMonth()">この月の登録済み支障日を全削除</button>
+        </div>
+        <div id="unavail-msg" style="margin-top:8px"></div>
+      </div>
+
+    </div>
+
+    <div id="page-unavail-list" class="page">
+      <div class="section-title">登録済み支障日一覧</div>
+      <div class="card">
+        <div class="card-title">登録済み支障日一覧（一覧表形式）</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px;line-height:1.3">
+          選択された対象月の支障日が一覧表示されます。[ ✓: 登録済み（クリックで削除） ]。空欄をクリックすると支障日に登録されます。
+        </p>
+        <div style="display:flex;gap:8px;margin-bottom:4px;align-items:center">
+          <label style="font-size:12px;color:var(--text-muted);font-weight:500">表示月:</label>
+          <input id="u-matrix-month" type="month" onchange="loadUnavailable()" style="width:140px">
+          <button class="btn btn-sm" onclick="printUnavailMatrix()">🖨 この一覧表を印刷</button>
+        </div>
+        <div class="table-wrap unavail-matrix-wrap">
+          <table class="matrix-table" style="width:100%">
+            <thead id="unavail-matrix-head"></thead>
+            <tbody id="unavail-matrix-body">
+              <tr><td style="text-align:center;color:var(--text-hint);padding:20px" id="matrix-loading-td">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text-muted)"><span style="color:var(--accent);font-weight:bold">✓</span> 登録済み支障日</span>
+          <span style="font-size:12px;color:var(--text-muted)"><span style="background:#fff59d;padding:1px 6px;border-radius:3px">黄</span> 当番日決定済み（生成・保存済み）</span>
+          <span style="font-size:12px;color:var(--text-muted)"><span style="background:#e89090;padding:1px 6px;border-radius:3px;color:#fff">塗りつぶし</span> 日祝当番の人</span>
+          <span style="font-size:12px;color:var(--text-muted)"><span style="background:#fceaea;padding:1px 6px;border-radius:3px">日祝</span> 日曜・祝日枠</span>
+          <span style="font-size:12px;color:var(--text-muted)"><span style="background:#c9c9c9;padding:1px 6px;border-radius:3px">灰</span> 前月当番からの中8日期間</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-generate" class="page">
+      <div class="section-title">当番表の自動作成</div>
+      <div class="form-grid" style="margin-bottom:16px">
+        <div class="form-group">
+          <label>対象年月 *</label>
+          <div style="display:flex;gap:4px;align-items:center">
+            <button class="btn btn-sm" onclick="shiftMonth('gen-month',-1)">◀</button>
+            <input id="gen-month" type="month" style="width:130px">
+            <button class="btn btn-sm" onclick="shiftMonth('gen-month',1)">▶</button>
+          </div>
+        </div>
+      </div>
+      <div id="gen-preview" style="display:none" class="card">
+        <div class="card-title">📋 作成プレビュー</div>
+        <div class="table-wrap">
+          <table class="gen-preview-table">
+            <thead><tr><th>日付</th><th>曜日</th><th>当番者</th><th>種別</th></tr></thead>
+            <tbody id="gen-preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="assignTwiceMembersFirst()">2回の人だけ先に割り当てる</button>
+        <button class="btn" onclick="assignHolidayMembersFirst()">日祝当番の人を割り当てる</button>
+        <button class="btn btn-primary" onclick="generateSchedule()">当番表を作成</button>
+        <button class="btn" id="btn-save-gen" style="display:none" onclick="saveGeneratedSchedule()">保存する</button>
+        <button class="btn btn-danger" onclick="resetMonthSchedule()">選択した月の当番表をリセット</button>
+      </div>
+      <div id="gen-msg" style="margin-top:8px"></div>
+    </div>
+
+    <div id="page-gen-rules" class="page">
+      <div class="section-title">当番表作成ルール</div>
+      <div class="card">
+        <div class="card-title">作成ルール</div>
+        <ul class="rules-list">
+          <li>一日一人、必ず誰かが当番に当たる</li>
+          <li>支障日は割り当てない</li>
+          <li><strong>当番は各人の「月の予定回数（0回／1回／2回）」に従って割り当てる</strong>（0回の月はその人を対象外にし、2回の月はその人を優先的に2回割り当てる）</li>
+          <li><strong>当番回数が2回の人を先に割り当てる</strong></li>
+          <li>前回当番から原則 8 日間空ける（連続当番を避ける）</li>
+          <li><strong>日曜・祝日（振替休日含む）は年間予定で「日祝」にチェックがある人を割り当てる</strong></li>
+          <li style="color:var(--text-muted);font-size:12px">※ 支障日等の都合でどうしても人数が足りない場合のみ、上記の間隔・日祝・回数上限を順に緩めて必ず誰かを割り当てます（プレビューで内容を確認・手動調整できます）</li>
+          <li style="color:var(--text-muted);font-size:12px">※「2回の人だけ先に割り当てる」ボタンを押すと、月2回設定の人の枠だけを先にロック状態でプレビューに割り当てます（この割り当てでは前回当番から8日間空けることを絶対条件とし、間隔だけは緩めません）。続けて「当番表を作成」を押すと、その内容を維持したまま残りの日を自動で埋められます。</li>
+          <li style="color:var(--text-muted);font-size:12px">※「日祝当番の人を割り当てる」ボタンを押すと、日曜・祝日（振替休日含む）だけを対象に、年間予定で「日祝」にチェックがある人をロック状態でプレビューに割り当てます（平日の枠には触れません。前回当番から8日間空けることを絶対条件とし、間隔だけは緩めません）。続けて「当番表を作成」を押すと、その内容を維持したまま残りの日（平日など）を自動で埋められます。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="page-records" class="page">
+      <div class="section-title">割当確認（表形式）</div>
+      <div class="card">
+        <div class="card-title">表示設定</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="width:110px">
+            <label>開始年</label>
+            <select id="rec-year"></select>
+          </div>
+          <div class="form-group" style="width:90px">
+            <label>開始月</label>
+            <select id="rec-start-month"></select>
+          </div>
+          <div class="form-group" style="width:130px">
+            <label>表示件数</label>
+            <select id="rec-count">
+              <option value="6" selected>6ヶ月分</option>
+              <option value="12">12ヶ月分</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="renderRecordTable()">表示</button>
+          <button class="btn" onclick="exportRecordCSV()">CSV出力</button>
+          <button class="btn" onclick="printRecordTable()">🖨 印刷</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" id="rec-title">年月・表示件数を選択して「表示」を押してください</div>
+        <div id="rec-table-wrap" style="overflow-x:auto;display:flex;gap:12px;padding-bottom:8px"></div>
+        <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text-muted)"><span style="background:var(--danger);color:#fff;padding:1px 6px;border-radius:3px;font-size:11px">1日(日)</span> 日曜・祝日</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-holidays" class="page">
+      <div class="section-title">日曜祝日等管理</div>
+      <div class="alert alert-info">登録した日は「日祝当番」として扱われます（振替休日もここで登録してください）。</div>
+      <div class="card">
+        <div class="card-title">祝日を追加</div>
+        <div class="form-grid">
+          <div class="form-group"><label>日付 *</label><input id="hol-date" type="date"></div>
+          <div class="form-group"><label>名称 *</label><input id="hol-name" placeholder="例: 振替休日"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="addHoliday()">追加する</button>
+        </div>
+        <div id="holiday-msg" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">基本の祝日を一括登録</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px">元日・成人の日・建国記念の日など、法律で定められた基本の祝日を2026年〜2050年まで一括登録します。振替休日は含まれませんので、その都度個別に追加してください。</p>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="seedBasicHolidays()">基本の祝日を一括登録（2026〜2050年）</button>
+        </div>
+        <div id="seed-holiday-msg" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">登録済み祝日一覧</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <label style="font-size:12px;color:var(--text-muted);font-weight:500">対象年:</label>
+          <input id="hol-year" type="number" style="width:120px" onchange="renderHolidaysTable()">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>日付</th><th>曜日</th><th>名称</th><th></th></tr></thead>
+            <tbody id="holidays-body"><tr><td colspan="4" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="page-chotome" class="page">
+      <div class="section-title">本部祭典日・本部お勤め時間</div>
+      <div class="alert alert-info">左は本部の年間祭典日、右は印刷①で表示される「朝勤め・夕勤め」の時刻です（前半1日〜15日・後半16日〜月末日ごとに月別設定）。祭典名・日付・時間はすべて変更できます。変更後は、それぞれの「保存する」ボタンを押してください。</div>
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div class="card" style="flex:1 1 0;min-width:280px">
+          <div class="card-title">📌 本部祭典日</div>
+          <div id="festival-rows"></div>
+          <div class="btn-row" style="margin-top:12px">
+            <button class="btn btn-primary" onclick="saveFestivals()">保存する</button>
+          </div>
+          <div id="festival-msg" style="margin-top:8px"></div>
+        </div>
+        <div class="card" style="flex:1 1 0;min-width:280px">
+          <div class="card-title">📌 月別 朝づとめ・夕づとめ時間</div>
+          <div class="table-wrap">
+            <table style="width:auto">
+              <thead>
+                <tr>
+                  <th style="width:34px;color:#1a1814;font-size:13px;padding:4px 4px">月</th>
+                  <th class="chotome-th" style="color:#1a1814;font-size:12px;text-align:left;padding:4px 4px;white-space:nowrap"><span class="chotome-label" style="display:inline-block">朝づとめ</span><br><span class="chotome-subline" style="font-weight:400;font-size:10px;color:#1a1814;display:inline-block">1日<span class="chotome-tilde">〜</span>15日</span></th>
+                  <th class="chotome-th" style="color:#1a1814;font-size:12px;text-align:left;padding:4px 4px;white-space:nowrap"><span class="chotome-label" style="display:inline-block">夕づとめ</span><br><span class="chotome-subline" style="font-weight:400;font-size:10px;color:#1a1814;display:inline-block">1日<span class="chotome-tilde">〜</span>15日</span></th>
+                  <th class="chotome-th" style="color:#1a1814;font-size:12px;text-align:left;padding:4px 4px;white-space:nowrap"><span class="chotome-label" style="display:inline-block">朝づとめ</span><br><span class="chotome-subline" style="font-weight:400;font-size:10px;color:#1a1814;display:inline-block">16日<span class="chotome-tilde">〜</span>月末日</span></th>
+                  <th class="chotome-th" style="color:#1a1814;font-size:12px;text-align:left;padding:4px 4px;white-space:nowrap"><span class="chotome-label" style="display:inline-block">夕づとめ</span><br><span class="chotome-subline" style="font-weight:400;font-size:10px;color:#1a1814;display:inline-block">16日<span class="chotome-tilde">〜</span>月末日</span></th>
+                </tr>
+              </thead>
+              <tbody id="chotome-body"><tr><td colspan="5" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="btn-row" style="margin-top:12px">
+            <button class="btn btn-primary" onclick="saveChotomeTimes()">保存する</button>
+          </div>
+          <div id="chotome-msg" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-bg" id="config-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+  <div class="modal" style="background:#fff;border-radius:12px;padding:32px;width:440px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+    <h3 style="font-size:16px;font-weight:500;margin-bottom:8px;">⚙ Supabase 接続設定</h3>
+    <div class="form-group" style="margin-bottom:12px">
+      <label style="font-size:12px;color:#6b6560;font-weight:500;display:block;margin-bottom:4px">Supabase URL</label>
+      <input id="cfg-url" placeholder="https://xxxx.supabase.co" type="url" style="width:100%;border:1px solid #e4e0d8;border-radius:8px;padding:10px;font-size:13px">
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label style="font-size:12px;color:#6b6560;font-weight:500;display:block;margin-bottom:4px">Publishable Key</label>
+      <input id="cfg-key" placeholder="sb_publishable_..." type="text" style="width:100%;border:1px solid #e4e0d8;border-radius:8px;padding:10px;font-size:13px">
+    </div>
+    <div id="cfg-msg" style="margin-bottom:12px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="saveConfig()" style="padding:10px 20px;background:#2e3d22;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">接続テスト & 保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="day-modal">
+  <div class="modal">
+    <h3 id="day-modal-title">当番を設定</h3>
+    <input type="hidden" id="day-modal-date">
+    <div class="form-group" style="margin-bottom:4px">
+      <label>当番者</label>
+      <select id="day-modal-member" onchange="updateDayModalMemberInfo()"><option value="">未設定</option></select>
+    </div>
+    <div id="day-modal-member-info" style="font-size:12px;color:var(--text-muted);margin-bottom:12px;min-height:16px"></div>
+    <div class="form-group">
+      <label>備考</label>
+      <input id="day-modal-note" placeholder="">
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="day-modal-locked" style="width:14px;height:14px;cursor:pointer">
+        🔒 この日の当番をロックする（「当番表を作成」を押しても変更されなくなります）
+      </label>
+    </div>
+    <div id="day-modal-msg" style="margin-top:8px"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeDayModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveDaySchedule()">保存</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// =============================================
+// State
+// =============================================
+let sbClient = null;
+let members = [];
+let holidays = {};
+let schedules = {};
+let chotomeTimesData = {};
+
+// 当番表の対象期間を返す共通ヘルパー
+// 通常月：1日〜末日。12月のみ特例で「12/1〜翌年1/4」を対象とする。
+// 戻り値: [{y, m, d, dateStr}, ...]
+function getServiceMonthDays(year, month) {
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const days = [];
+  if (month === 12) {
+    for (let d = 1; d <= 31; d++) days.push({ y: year, m: 12, d, dateStr: `${year}-12-${pad2(d)}` });
+    for (let d = 1; d <= 4; d++) days.push({ y: year + 1, m: 1, d, dateStr: `${year + 1}-01-${pad2(d)}` });
+  } else {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) days.push({ y: year, m: month, d, dateStr: `${year}-${pad2(month)}-${pad2(d)}` });
+  }
+  return days;
+}
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let generatedSchedule = [];
+let selectedUnavailDates = new Set();
+let allMembersById = {};
+let allMembersLoaded = false;
+
+const DOW_JP = ['日','月','火','水','木','金','土'];
+
+// =============================================
+// サイドバー表示/非表示
+// =============================================
+// 月ごと当番回数・日祝当番月・各メンバー年間設定など、横に長い表を画面いっぱいに
+// 表示したい場合のために、サイドバーを非表示にできるようにする（選択状態は保持する）
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  const collapsed = sidebar.classList.toggle('collapsed');
+  try { localStorage.setItem('sidebar_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+  // サイドバーの表示切替はウィンドウ自体のリサイズではないため、通常のresizeイベントでは
+  // 再計算されない「固定列(年度/月/日数)の位置」や「表の高さ」がそのまま古い値で残ってしまう。
+  // アニメーション（0.15秒）が終わったタイミングで明示的に再計算する。
+  setTimeout(() => {
+    if (typeof updateMc2HeaderStickyOffset === 'function') updateMc2HeaderStickyOffset();
+    if (typeof fitYearBlockHeight === 'function') {
+      fitYearBlockHeight('mh2-body');
+      fitYearBlockHeight('annual2-body');
+    }
+  }, 200);
+}
+function restoreSidebarState() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  let collapsed = false;
+  try { collapsed = localStorage.getItem('sidebar_collapsed') === '1'; } catch(e) {}
+  sidebar.classList.toggle('collapsed', collapsed);
+}
+
+// =============================================
+// Config & Init
+// =============================================
+function showConfigModal() {
+  try { document.getElementById('cfg-url').value = localStorage.getItem('sb_url') || ''; } catch(e) {}
+  try { document.getElementById('cfg-key').value = localStorage.getItem('sb_key') || ''; } catch(e) {}
+  document.getElementById('config-modal').style.display = 'flex';
+}
+function closeConfigModal() { document.getElementById('config-modal').style.display = 'none'; }
+
+async function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  if (!url || !key) { showMsg('cfg-msg', 'URLとキーを入力してください', 'error'); return; }
+  try {
+    sbClient = window.supabase.createClient(url, key);
+    const { error } = await sbClient.from('members').select('*').limit(1);
+    if (error) throw error;
+    try { localStorage.setItem('sb_url', url); localStorage.setItem('sb_key', key); } catch(e) {}
+    showMsg('cfg-msg', '接続成功！', 'success');
+    document.getElementById('conn-status').textContent = '接続済み ✓';
+    setTimeout(() => {
+      closeConfigModal();
+      initApp();
+    }, 800);
+  } catch(e) {
+    showMsg('cfg-msg', '接続失敗: ' + e.message, 'error');
+  }
+}
+
+async function initApp() {
+  const SUPABASE_URL = localStorage.getItem('sb_url') || 'https://thwlerletbndqqtrodub.supabase.co';
+  const SUPABASE_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRod2xlcmxldGJuZHFxdHJvZHViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTkzNzQsImV4cCI6MjA5NzM5NTM3NH0.DZDm7ofonli2ncqjQF4fUP3c83V3qLwOf12lc5cltEo';
+
+  if (!sbClient) {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    document.getElementById('conn-status').textContent = '接続済み ✓';
+  }
+
+  await loadMembers().catch(e => console.warn('[members]', e.message));
+  await ensureAllMembersCache().catch(e => console.warn('[allMembers]', e.message));
+  await loadHolidays().catch(e => console.warn('[holidays]', e.message));
+  await loadSchedules().catch(e => console.warn('[schedules]', e.message));
+  await loadChotomeTimes().catch(e => console.warn('[chotome_times]', e.message));
+  renderCalendar();
+  populateMemberSelects();
+  await ensureMultiYearsLoaded(getMultiYears('mc2-start-year', 'mc2-year-span')).catch(e => console.warn('[annualPlansMulti]', e.message));
+  renderMultiCount2Table();
+  await ensureMultiYearsLoaded(getMultiYears('mh2-start-year', 'mh2-year-span')).catch(e => console.warn('[annualPlansMulti]', e.message));
+  renderMultiHolTable2();
+  await ensureMultiYearsLoaded(getMultiYears('annual2-start-year', 'annual2-year-span')).catch(e => console.warn('[annualPlansMulti]', e.message));
+  renderAnnualTable2();
+  
+  const next = new Date(); next.setMonth(next.getMonth()+1);
+  const nextStr = next.toISOString().slice(0,7);
+  document.getElementById('gen-month').value = nextStr;
+  document.getElementById('u-matrix-month').value = nextStr;
+  document.getElementById('u-summary-month').value = nextStr;
+}
+
+// =============================================
+// Data Loaders
+// =============================================
+async function loadMembers() {
+  const { data, error } = await sbClient.from('members').select('*').eq('is_active', true);
+  // 現在アクティブなメンバーの最新情報を全メンバーキャッシュにも反映しておく
+  // （退職者など非アクティブなメンバーの情報は上書きされず、そのまま残る）
+  if (data) data.forEach(m => { allMembersById[m.id] = m; });
+  if (error) throw error;
+  members = data || [];
+  members.sort((a, b) => (parseInt(a.member_no) || 9999) - (parseInt(b.member_no) || 9999));
+  renderMembersTable();
+  return members;
+}
+
+async function loadHolidays() {
+  const { data } = await sbClient.from('holidays').select('*');
+  holidays = {};
+  (data || []).forEach(h => { holidays[h.date] = h.name; });
+}
+
+async function loadChotomeTimes() {
+  try {
+    const { data, error } = await sbClient.from('chotome_times').select('*');
+    if (error) throw error;
+    (data || []).forEach(row => {
+      chotomeTimesData[row.month] = {
+        amFirst: row.am_first, pmFirst: row.pm_first,
+        amSecond: row.am_second, pmSecond: row.pm_second
+      };
+    });
+  } catch (e) {
+    console.warn('[chotome_times]', e.message, '（テーブル未作成の場合は初期値を使用します）');
+  }
+  renderChotomeTable();
+}
+
+function renderChotomeTable() {
+  const body = document.getElementById('chotome-body');
+  if (!body) return;
+  let rows = '';
+  for (let m = 1; m <= 12; m++) {
+    const t = chotomeTimesData[m] || CHOTOME_TIMES[m] || {};
+    rows += `<tr>
+      <td style="text-align:center;font-weight:600;font-size:12px;padding:3px 2px">${m}月</td>
+      <td style="padding:2px"><input type="text" data-month="${m}" data-field="amFirst" value="${t.amFirst || ''}" placeholder="7:00" style="width:56px;font-size:12px;padding:3px 4px;text-align:center"></td>
+      <td style="padding:2px"><input type="text" data-month="${m}" data-field="pmFirst" value="${t.pmFirst || ''}" placeholder="5:00" style="width:56px;font-size:12px;padding:3px 4px;text-align:center"></td>
+      <td style="padding:2px"><input type="text" data-month="${m}" data-field="amSecond" value="${t.amSecond || ''}" placeholder="7:00" style="width:56px;font-size:12px;padding:3px 4px;text-align:center"></td>
+      <td style="padding:2px"><input type="text" data-month="${m}" data-field="pmSecond" value="${t.pmSecond || ''}" placeholder="5:15" style="width:56px;font-size:12px;padding:3px 4px;text-align:center"></td>
+    </tr>`;
+  }
+  body.innerHTML = rows;
+  requestAnimationFrame(alignChotomeHeaderLabels);
+}
+
+function alignChotomeHeaderLabels() {
+  document.querySelectorAll('.chotome-th').forEach(th => {
+    const label = th.querySelector('.chotome-label');
+    const subline = th.querySelector('.chotome-subline');
+    const tilde = th.querySelector('.chotome-tilde');
+    if (!label || !subline || !tilde) return;
+    subline.style.marginLeft = '0px';
+    const thRect = th.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    const tildeRect = tilde.getBoundingClientRect();
+    const labelCenter = (labelRect.left + labelRect.width / 2) - thRect.left;
+    const tildeCenter = (tildeRect.left + tildeRect.width / 2) - thRect.left;
+    const offset = labelCenter - tildeCenter;
+    subline.style.marginLeft = Math.max(0, offset) + 'px';
+  });
+}
+window.addEventListener('resize', () => requestAnimationFrame(alignChotomeHeaderLabels));
+
+async function saveChotomeTimes() {
+  const msg = document.getElementById('chotome-msg');
+  const body = document.getElementById('chotome-body');
+  const inputs = body.querySelectorAll('input[data-month]');
+  const byMonth = {};
+  inputs.forEach(inp => {
+    const m = parseInt(inp.getAttribute('data-month'));
+    const field = inp.getAttribute('data-field');
+    byMonth[m] = byMonth[m] || {};
+    byMonth[m][field] = inp.value.trim();
+  });
+  const rows = Object.keys(byMonth).map(m => ({
+    month: parseInt(m),
+    am_first: byMonth[m].amFirst || '',
+    pm_first: byMonth[m].pmFirst || '',
+    am_second: byMonth[m].amSecond || '',
+    pm_second: byMonth[m].pmSecond || ''
+  }));
+  try {
+    const { error } = await sbClient.from('chotome_times').upsert(rows, { onConflict: 'month' });
+    if (error) throw error;
+    rows.forEach(r => {
+      chotomeTimesData[r.month] = { amFirst: r.am_first, pmFirst: r.pm_first, amSecond: r.am_second, pmSecond: r.pm_second };
+    });
+    if (msg) { msg.innerHTML = '<span style="color:var(--accent-dark)">保存しました。</span>'; setTimeout(() => msg.innerHTML = '', 3000); }
+  } catch (e) {
+    if (msg) msg.innerHTML = `<span style="color:var(--danger)">保存に失敗しました: ${e.message}（「chotome_times」テーブルが未作成の可能性があります）</span>`;
+  }
+}
+
+// =============================================
+// 本部祭典日（honbu_festivals）
+// =============================================
+const FESTIVAL_DEFAULTS = [
+  { name: '元旦祭', date: '1月1日', time: '午前5時' },
+  { name: '春季大祭', date: '1月26日', time: '午前10時30分' },
+  { name: '春季霊祭', date: '3月27日', time: '午前9時' },
+  { name: '教祖誕生祭', date: '4月18日', time: '午前10時' },
+  { name: '秋季霊祭', date: '9月27日', time: '午前9時' },
+  { name: '秋季大祭', date: '10月26日', time: '午前8時' },
+  { name: '月次祭', date: '毎月26日', time: '午前9時' },
+];
+let festivalData = FESTIVAL_DEFAULTS.map((f, i) => ({ sort_order: i + 1, ...f }));
+
+async function loadFestivals() {
+  try {
+    const { data, error } = await sbClient.from('honbu_festivals').select('*').order('sort_order');
+    if (error) throw error;
+    if (data && data.length) {
+      festivalData = data.map(r => ({ sort_order: r.sort_order, name: r.name, date: r.date, time: r.time }));
+    } else {
+      festivalData = FESTIVAL_DEFAULTS.map((f, i) => ({ sort_order: i + 1, ...f }));
+    }
+  } catch (e) {
+    console.warn('[honbu_festivals]', e.message, '（テーブル未作成の場合は初期値を使用します）');
+    festivalData = FESTIVAL_DEFAULTS.map((f, i) => ({ sort_order: i + 1, ...f }));
+  }
+}
+
+function renderFestivalList() {
+  const rowsWrap = document.getElementById('festival-rows');
+  if (!rowsWrap) return;
+  rowsWrap.innerHTML = festivalData.map((f, i) => `
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+      <input type="text" data-idx="${i}" data-field="name" value="${f.name}" style="width:100px;font-size:13px;padding:4px 6px">
+      <input type="text" data-idx="${i}" data-field="date" value="${f.date}" style="width:92px;font-size:13px;padding:4px 6px">
+      <input type="text" data-idx="${i}" data-field="time" value="${f.time}" style="width:116px;font-size:13px;padding:4px 6px">
+    </div>
+  `).join('');
+}
+
+async function saveFestivals() {
+  const msg = document.getElementById('festival-msg');
+  const inputs = document.querySelectorAll('#festival-rows input[data-idx]');
+  inputs.forEach(inp => {
+    const idx = parseInt(inp.dataset.idx);
+    const field = inp.dataset.field;
+    if (festivalData[idx]) festivalData[idx][field] = inp.value.trim();
+  });
+  const rows = festivalData.map((f, i) => ({ sort_order: i + 1, name: f.name, date: f.date, time: f.time }));
+  try {
+    const { error } = await sbClient.from('honbu_festivals').upsert(rows, { onConflict: 'sort_order' });
+    if (error) throw error;
+    festivalData = rows;
+    if (msg) { msg.innerHTML = '<span style="color:var(--accent-dark)">保存しました。</span>'; setTimeout(() => msg.innerHTML = '', 3000); }
+  } catch (e) {
+    if (msg) msg.innerHTML = `<span style="color:var(--danger)">保存に失敗しました: ${e.message}（「honbu_festivals」テーブルが未作成の可能性があります）</span>`;
+  }
+}
+
+
+
+async function loadSchedules() {
+  const { data, error } = await sbClient.from('annual_roster').select('*');
+  if (error) { schedules = {}; return; }
+  schedules = {};
+  (data || []).forEach(s => { schedules[s.duty_date] = s; });
+}
+
+// =============================================
+// Members
+// =============================================
+function renderMembersTable() {
+  document.getElementById('member-count').textContent = '';
+  const body = document.getElementById('members-body');
+  if (!members.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-hint)">メンバーがいません</td></tr>'; return; }
+  body.innerHTML = members.map(m => {
+    const phoneField = m.hasOwnProperty('phone') ? 'phone' : (m.hasOwnProperty('phone_number') ? 'phone_number' : (m.hasOwnProperty('tel') ? 'tel' : 'phone'));
+    const phoneVal = m.phone || m.phone_number || m.tel || '';
+    const deptVal = m.department || '';
+    const noVal = m.member_no || '';
+    return `
+      <tr>
+        <td><input type="text" value="${String(noVal).replace(/"/g,'&quot;')}" placeholder="—" style="width:70px;text-align:center" onchange="updateMemberField('${m.id}','member_no',this.value)"></td>
+        <td><input type="text" value="${String(m.name || '').replace(/"/g,'&quot;')}" placeholder="氏名未設定" style="width:100%;min-width:110px;font-weight:600" onchange="updateMemberField('${m.id}','name',this.value)"></td>
+        <td><input type="text" value="${deptVal.replace(/"/g,'&quot;')}" placeholder="部署未設定" style="width:100%;min-width:100px" onchange="updateMemberField('${m.id}','department',this.value)"></td>
+        <td><input type="text" value="${phoneVal.replace(/"/g,'&quot;')}" placeholder="電話番号未設定" style="width:100%;min-width:130px" onchange="updateMemberField('${m.id}','${phoneField}',this.value)"></td>
+        <td><span class="badge badge-green">✓ アクティブ</span></td>
+        <td><button class="btn btn-sm btn-danger" onclick="deactivateMember('${m.id}')">削除</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function updateMemberField(id, field, value) {
+  const val = value.trim() || null;
+  const payload = {};
+  payload[field] = val;
+  try {
+    const { error } = await sbClient.from('members').update(payload).eq('id', id);
+    if (error) throw error;
+    const m = members.find(x => x.id == id);
+    if (m) m[field] = val;
+    showMsg('member-msg', '更新しました', 'success');
+  } catch(e) {
+    showMsg('member-msg', '更新失敗: ' + e.message, 'error');
+    await loadMembers();
+  }
+}
+
+async function addMember() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { showMsg('member-msg', '氏名を入力してください', 'error'); return; }
+  
+  const noVal = document.getElementById('m-no').value.trim();
+  const payload = { 
+    name, 
+    member_no: noVal || null,
+    department: document.getElementById('m-dept').value.trim() || null,
+    phone: document.getElementById('m-phone').value.trim() || null
+  };
+  
+  const { error } = await sbClient.from('members').insert(payload);
+  if (error) { showMsg('member-msg', error.message, 'error'); return; }
+  showMsg('member-msg', `${name} を追加しました`, 'success');
+  document.getElementById('m-no').value = '';
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-dept').value = '';
+  document.getElementById('m-phone').value = '';
+  await loadMembers();
+  populateMemberSelects();
+}
+
+async function deactivateMember(id) {
+  if (!confirm('このメンバーを削除しますか？')) return;
+  await sbClient.from('members').update({ is_active: false }).eq('id', id);
+  await loadMembers();
+  populateMemberSelects();
+}
+
+// =============================================
+// Annual Plan
+// =============================================
+function updateAnnualHeaderStickyOffset() {
+  document.querySelectorAll('.annual-table').forEach(table => {
+    const firstRow = table.querySelector('thead tr:first-child');
+    if (!firstRow) return;
+    // 1行目見出しの実際の高さを測って、2行目見出し（1月〜12月）が正しくその下にピタッと固定されるようにする
+    const h = firstRow.getBoundingClientRect().height;
+    if (h > 0) table.style.setProperty('--annual-head1-h', h + 'px');
+  });
+}
+
+window.addEventListener('resize', () => updateAnnualHeaderStickyOffset());
+
+// =============================================
+// 各メンバーの年間設定（転置レイアウト：メンバーを横・月を縦に並べる、複数年表示）
+// データは annualPlansMulti（①②「月ごと当番回数」「日祝当番月」と共通のキャッシュ）を共有する。
+// =============================================
+async function loadAndRenderAnnualTable2() {
+  const years = getMultiYears('annual2-start-year', 'annual2-year-span');
+  await ensureMultiYearsLoaded(years);
+  renderAnnualTable2(years);
+}
+
+function renderAnnualTable2(years) {
+  years = years || getMultiYears('annual2-start-year', 'annual2-year-span');
+  const head = document.getElementById('annual2-head');
+  const body = document.getElementById('annual2-body');
+  if (!head || !body) return;
+
+  // 保存・自動配分の対象年度セレクトの選択肢を、表示年度に合わせて更新（選べていた年度は維持）
+  const targetSel = document.getElementById('annual2-target-year');
+  if (targetSel) {
+    const prevVal = targetSel.value;
+    targetSel.innerHTML = years.map(y => `<option value="${y}">${y}年</option>`).join('');
+    if (years.includes(parseInt(prevVal))) targetSel.value = prevVal;
+  }
+
+  if (!members.length) {
+    head.innerHTML = '';
+    body.innerHTML = `<tr><td style="text-align:center;color:var(--text-hint)">先にメンバーを登録してください</td></tr>`;
+    return;
+  }
+
+  const nameRow = members.map(m => `<th colspan="2" style="padding:0;height:96px;width:28px"><div style="display:table;width:100%;height:100%"><div style="display:table-cell;vertical-align:top;text-align:center;padding-top:10px"><span style="display:inline-block;font-size:11px;white-space:nowrap;writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1px;color:#000">${m.name}</span></div></div></th>`).join('');
+  const subRow = members.map(() => `<th style="font-size:10px;padding:2px 0;width:20px;writing-mode:vertical-rl;text-orientation:upright;height:40px">回数</th><th style="font-size:10px;padding:2px 0;width:22px;writing-mode:vertical-rl;text-orientation:upright;height:40px">日祝</th>`).join('');
+
+  head.innerHTML = `
+    <tr>
+      <th class="mc2-col1" rowspan="2" style="width:50px">年度</th>
+      <th class="mc2-col2" rowspan="2" style="width:30px">月</th>
+      <th class="mc2-col3" rowspan="2" style="width:28px">日数</th>
+      ${nameRow}
+      <th rowspan="2" style="width:56px">当番計/<br>日数</th>
+      <th rowspan="2" style="width:56px">日祝計/<br>日祝日数</th>
+    </tr>
+    <tr>${subRow}</tr>
+  `;
+
+  let bodyHtml = '';
+  years.forEach(y => {
+    for (let mon = 1; mon <= 12; mon++) {
+      const dim = daysInMonth(y, mon);
+      // rowspanをsticky(横スクロール固定)列に使うと、ブラウザによって「年度」セルの
+      // 縦位置がずれて表示が崩れることがあるため、rowspanは使わず、12ヶ月分すべての行に
+      // 同じ背景色のセルを敷いて、1月の行だけ年度を表示することで見た目上の結合を再現する
+      const yearCellHtml = `<td class="mc2-col1" style="text-align:center;font-weight:600;vertical-align:middle;font-size:11px;padding:2px 1px;${mon < 12 ? 'border-bottom:none;' : ''}">${mon === 1 ? (y + '年') : ''}</td>`;
+      const cellsHtml = members.map(m => {
+        const cell = getMultiCell(y, m.id);
+        let val = 1;
+        if (cell.twice.includes(mon)) val = 2;
+        if (cell.zero.includes(mon)) val = 0;
+        const bg = val === 0 ? '#fceaea' : '#ffffff';
+        const selColor = val === 2 ? 'color:#000;font-weight:700;background:#e89090;' : '';
+        const checked = cell.hol.includes(mon) ? 'checked' : '';
+        return `<td style="text-align:center;background:${bg};padding:1px 0">
+            <select data-mid="${m.id}" data-year="${y}" data-month="${mon}" data-type="count2" onchange="onAnnualCount2Change(this)" style="width:18px;font-size:10px;padding:1px 0;border-radius:4px;text-align:center;text-align-last:center;${selColor}">
+              <option value="1" ${val===1?'selected':''}>1</option>
+              <option value="2" ${val===2?'selected':''}>2</option>
+              <option value="0" ${val===0?'selected':''}>0</option>
+            </select>
+          </td>
+          <td style="text-align:center;padding:2px 0">
+            <input type="checkbox" data-mid="${m.id}" data-year="${y}" data-month="${mon}" data-type="hol2" ${checked} onchange="onAnnualHol2Change(this)" style="width:14px;height:14px;cursor:pointer;accent-color:#e89090">
+          </td>`;
+      }).join('');
+      bodyHtml += `<tr>${yearCellHtml}
+        <td class="mc2-col2" style="text-align:center;font-weight:500;font-size:11px;padding:2px 1px">${mon}月</td>
+        <td class="mc2-col3" style="text-align:center;color:var(--text-muted);font-size:11px;padding:2px 1px">${dim}</td>
+        ${cellsHtml}
+        <td id="annual2-row-count-${y}-${mon}" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td>
+        <td id="annual2-row-hol-${y}-${mon}" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td>
+      </tr>`;
+    }
+    const totalCellsHtml = members.map(m => {
+      const cell = getMultiCell(y, m.id);
+      const countTotal = monthlyValsFromCell(cell);
+      return `<td id="annual2-total-count-${m.id}-${y}" style="text-align:center;font-weight:700;font-size:11px">${countTotal}</td><td id="annual2-total-hol-${m.id}-${y}" style="text-align:center;font-weight:700;font-size:11px">${cell.hol.length}</td>`;
+    }).join('');
+    bodyHtml += `<tr class="mc2-total-row"><td class="mc2-col1" colspan="3" style="white-space:nowrap;font-weight:700;padding:4px 4px;font-size:11px">${y}年 年間合計</td>${totalCellsHtml}<td id="annual2-grand-count-${y}" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td><td id="annual2-grand-hol-${y}" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td></tr>`;
+  });
+  body.innerHTML = bodyHtml;
+
+  updateMc2HeaderStickyOffset();
+  fitYearBlockHeight('annual2-body');
+  years.forEach(y => updateAnnualTable2ValidationForYear(y));
+}
+
+// 指定年度の各行（月）・年間合計行の 当番人数計/日数・日祝計/日祝日数 チェックを更新
+function updateAnnualTable2ValidationForYear(y) {
+  const body = document.getElementById('annual2-body');
+  if (!body) return;
+  let totalAssignedCount = 0, totalExpectedDays = 0, totalAssignedHol = 0, totalExpectedHol = 0;
+
+  for (let mon = 1; mon <= 12; mon++) {
+    const expectedDays = daysInMonth(y, mon);
+    const assignedCount = Array.from(body.querySelectorAll(`select[data-type="count2"][data-year="${y}"][data-month="${mon}"]`))
+      .reduce((s, el) => s + Number(el.value), 0);
+    const okCount = assignedCount === expectedDays;
+    totalAssignedCount += assignedCount;
+    totalExpectedDays += expectedDays;
+    const cell = document.getElementById(`annual2-row-count-${y}-${mon}`);
+    if (cell) {
+      cell.textContent = `${assignedCount}/${expectedDays} ${okCount ? '✓' : '✗'}`;
+      cell.style.color = okCount ? '#2e7d32' : '#e89090';
+      cell.style.background = okCount ? '#eaf7ea' : '#fdeaea';
+    }
+
+    const expectedHol = sundayHolidayCountInMonth(y, mon);
+    const assignedHol = body.querySelectorAll(`input[data-type="hol2"][data-year="${y}"][data-month="${mon}"]:checked`).length;
+    const okHol = assignedHol === expectedHol;
+    totalAssignedHol += assignedHol;
+    totalExpectedHol += expectedHol;
+    const hcell = document.getElementById(`annual2-row-hol-${y}-${mon}`);
+    if (hcell) {
+      hcell.textContent = `${assignedHol}/${expectedHol} ${okHol ? '✓' : '✗'}`;
+      hcell.style.color = okHol ? '#2e7d32' : '#e89090';
+      hcell.style.background = okHol ? '#eaf7ea' : '#fdeaea';
+    }
+  }
+
+  const grandCountEl = document.getElementById(`annual2-grand-count-${y}`);
+  if (grandCountEl) {
+    const ok = totalAssignedCount === totalExpectedDays;
+    grandCountEl.textContent = `${totalAssignedCount}/${totalExpectedDays} ${ok ? '✓' : '✗'}`;
+    grandCountEl.style.color = ok ? '#2e7d32' : '#e89090';
+  }
+  const grandHolEl = document.getElementById(`annual2-grand-hol-${y}`);
+  if (grandHolEl) {
+    const ok = totalAssignedHol === totalExpectedHol;
+    grandHolEl.textContent = `${totalAssignedHol}/${totalExpectedHol} ${ok ? '✓' : '✗'}`;
+    grandHolEl.style.color = ok ? '#2e7d32' : '#e89090';
+  }
+}
+
+// 指定メンバー・年度の②表の年間合計セル（回数・日祝）だけを更新
+function updateAnnualTable2TotalsForMember(mid, y) {
+  const c = document.getElementById(`annual2-total-count-${mid}-${y}`);
+  const h = document.getElementById(`annual2-total-hol-${mid}-${y}`);
+  if (!c && !h) return;
+  const cell = getMultiCell(y, mid);
+  if (c) c.textContent = monthlyValsFromCell(cell);
+  if (h) h.textContent = cell.hol.length;
+}
+
+// 他画面（各メンバー年間設定／月ごと当番回数(①②)／日祝当番月(①②)）での変更を、
+// ②表の該当年度ブロックにその場で反映する（annualPlansMulti キャッシュが最新の状態を持っている前提）
+function refreshAnnualTable2CellsForYear(mid, y) {
+  const body = document.getElementById('annual2-body');
+  if (!body) return;
+  const cell = getMultiCell(y, mid);
+  let found = false;
+  for (let mon = 1; mon <= 12; mon++) {
+    const sel = body.querySelector(`select[data-mid="${mid}"][data-year="${y}"][data-month="${mon}"][data-type="count2"]`);
+    if (sel) {
+      found = true;
+      let val = '1';
+      if (cell.twice.includes(mon)) val = '2';
+      if (cell.zero.includes(mon)) val = '0';
+      sel.value = val;
+      sel.style.color = val === '2' ? '#fff' : '';
+      sel.style.fontWeight = val === '2' ? '700' : '';
+      sel.style.background = val === '2' ? '#e89090' : '';
+      const td = sel.closest('td');
+      if (td) td.style.background = val === '0' ? '#fceaea' : (val === '2' ? '#e89090' : '#ffffff');
+    }
+    const chk = body.querySelector(`input[data-mid="${mid}"][data-year="${y}"][data-month="${mon}"][data-type="hol2"]`);
+    if (chk) { found = true; chk.checked = cell.hol.includes(mon); }
+  }
+  if (!found) return; // その年度は現在表示されていない
+  updateAnnualTable2TotalsForMember(mid, y);
+  updateAnnualTable2ValidationForYear(y);
+}
+
+// ②表のプルダウン（回数）変更時：全画面のキャッシュ・表示へ連鎖反映する
+function onAnnualCount2Change(el) {
+  const mid = parseInt(el.dataset.mid);
+  const y = parseInt(el.dataset.year);
+  const mon = parseInt(el.dataset.month);
+  const val = el.value;
+
+  const cell = getMultiCell(y, mid);
+  cell.twice = cell.twice.filter(x => x !== mon);
+  cell.zero = cell.zero.filter(x => x !== mon);
+  if (val === '2') cell.twice.push(mon);
+  if (val === '0') cell.zero.push(mon);
+
+  el.style.color = val === '2' ? '#fff' : '';
+  el.style.fontWeight = val === '2' ? '700' : '';
+  el.style.background = val === '2' ? '#e89090' : '';
+  const td = el.closest('td');
+  if (td) td.style.background = val === '0' ? '#fceaea' : (val === '2' ? '#e89090' : '#ffffff');
+
+  updateAnnualTable2TotalsForMember(mid, y);
+  updateAnnualTable2ValidationForYear(y);
+
+  refreshMc2CellFromCache(mid, y);
+}
+
+// ②表のチェックボックス（日祝）変更時：全画面のキャッシュ・表示へ連鎖反映する
+function onAnnualHol2Change(el) {
+  const mid = parseInt(el.dataset.mid);
+  const y = parseInt(el.dataset.year);
+  const mon = parseInt(el.dataset.month);
+
+  const cell = getMultiCell(y, mid);
+  cell.hol = cell.hol.filter(x => x !== mon);
+  if (el.checked) cell.hol.push(mon);
+
+  updateAnnualTable2TotalsForMember(mid, y);
+  updateAnnualTable2ValidationForYear(y);
+
+  refreshMh2CellFromCache(mid, y);
+}
+
+// 「年間予定を保存」：対象年度セレクトで選んだ1年分だけをまとめて保存する
+async function saveAnnualPlanForYear2() {
+  const y = parseInt(document.getElementById('annual2-target-year')?.value);
+  if (!y) { showMsg('annual2-msg', '対象年度を選択してください', 'error'); return; }
+  await saveMultiYearPlansForYears([y], 'annual2-msg');
+  renderAnnualTable2();
+}
+
+// 「自動均等配分」：対象年度セレクトで選んだ1年分だけ、月ごとの当番回数を全員「1」にリセットする
+function autoDistributeForYear2() {
+  const y = parseInt(document.getElementById('annual2-target-year')?.value);
+  if (!y) { showMsg('annual2-msg', '対象年度を選択してください', 'error'); return; }
+
+  members.forEach(m => {
+    const cell = getMultiCell(y, m.id);
+    cell.twice = [];
+    cell.zero = [];
+    refreshMc2CellFromCache(m.id, y);
+    refreshAnnualTable2CellsForYear(m.id, y);
+  });
+  showMsg('annual2-msg', `${y}年の月ごとの当番回数を全員「1」にリセットしました。日祝・月2回/0回は手動で調整してください。`, 'info');
+}
+
+// =============================================
+// 年間予定：月ごとの人数チェック（当番人数合計 = その月の日数／日祝当番合計 = その月の日祝日数）
+// =============================================
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function sundayHolidayCountInMonth(year, month) {
+  const dim = daysInMonth(year, month);
+  let cnt = 0;
+  for (let d = 1; d <= dim; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    if (dow === 0 || holidays[dateStr]) cnt++;
+  }
+  return cnt;
+}
+
+// =============================================
+// 月ごとの当番回数・日祝当番月（複数年まとめて設定）
+// ①「月ごとの当番回数」と②「日祝当番の月」は別ページ・別の表示年度範囲として独立して動作する。
+// 内部データキャッシュ(annualPlansMulti)だけは年単位で共有し、二重取得を避ける。
+// =============================================
+let annualPlansMulti = {}; // { year: { memberId: { twice:[], zero:[], hol:[] } } }
+
+function getMultiYears(startSelId, spanSelId) {
+  const start = parseInt(document.getElementById(startSelId)?.value || new Date().getFullYear());
+  const span = parseInt(document.getElementById(spanSelId)?.value || 3);
+  return Array.from({ length: span }, (_, i) => start + i);
+}
+
+function getMultiCell(year, mid) {
+  if (!annualPlansMulti[year]) annualPlansMulti[year] = {};
+  if (!annualPlansMulti[year][mid]) annualPlansMulti[year][mid] = { twice: [], zero: [], hol: [] };
+  return annualPlansMulti[year][mid];
+}
+
+async function ensureMultiYearsLoaded(years, force) {
+  const targets = force ? years : years.filter(y => !annualPlansMulti[y]);
+  if (!targets.length) return;
+  targets.forEach(y => { annualPlansMulti[y] = {}; });
+  try {
+    const { data, error } = await sbClient
+      .from('annual_plans')
+      .select('member_id,year,target_count,monthly_twice_months,monthly_zero_months,holiday_months')
+      .in('year', targets);
+    if (error) throw error;
+    (data || []).forEach(p => {
+      const y = parseInt(p.year);
+      if (!annualPlansMulti[y]) annualPlansMulti[y] = {};
+      annualPlansMulti[y][parseInt(p.member_id)] = {
+        twice: (p.monthly_twice_months || []).map(Number),
+        zero: (p.monthly_zero_months || []).map(Number),
+        hol: (p.holiday_months || []).map(Number)
+      };
+    });
+  } catch (e) {
+    console.warn('[annualPlansMulti]', e.message);
+  }
+}
+
+function monthlyValsFromCell(cell) {
+  let total = 0;
+  for (let mon = 1; mon <= 12; mon++) {
+    let val = 1;
+    if (cell.twice.includes(mon)) val = 2;
+    if (cell.zero.includes(mon)) val = 0;
+    total += val;
+  }
+  return total;
+}
+
+// ---- 月ごとの当番回数②（転置レイアウト：メンバーを横・月を縦に並べる） ----
+async function loadAndRenderMultiCount2() {
+  const years = getMultiYears('mc2-start-year', 'mc2-year-span');
+  await ensureMultiYearsLoaded(years);
+  renderMultiCount2Table(years);
+}
+
+function renderMultiCount2Table(years) {
+  years = years || getMultiYears('mc2-start-year', 'mc2-year-span');
+  const head = document.getElementById('multi-count2-head');
+  const body = document.getElementById('multi-count2-body');
+  if (!head || !body) return;
+
+  if (!members.length) {
+    head.innerHTML = '';
+    body.innerHTML = `<tr><td style="text-align:center;color:var(--text-hint)">先にメンバーを登録してください</td></tr>`;
+    return;
+  }
+
+  // IDを表示する行
+  const idRow = members.map(m => `<th style="font-size:10px;padding:3px 1px;white-space:nowrap">${m.member_no || m.id}</th>`).join('');
+  // 名前を表示する行
+  const nameRow = members.map(m => `<th style="padding:0;height:76px;width:24px"><div style="display:table;width:100%;height:100%"><div style="display:table-cell;vertical-align:top;text-align:center;padding-top:10px"><span style="display:inline-block;font-size:11px;white-space:nowrap;writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1px;color:#000">${m.name}</span></div></div></th>`).join('');
+  
+  head.innerHTML = `
+    <tr>
+      <th class="mc2-col1" rowspan="2" style="width:50px">年度</th>
+      <th class="mc2-col2" rowspan="2" style="width:30px">月</th>
+      <th class="mc2-col3" rowspan="2" style="width:28px">日数</th>
+      ${idRow}
+      <th rowspan="2" style="width:56px">合計/<br>日数</th>
+    </tr>
+    <tr>${nameRow}</tr>
+  `;
+
+  let rowsHtml = '';
+  years.forEach(y => {
+    for (let mon = 1; mon <= 12; mon++) {
+      const dim = daysInMonth(y, mon);
+      // rowspanをsticky(横スクロール固定)列に使うと、ブラウザによって「年度」セルの
+      // 縦位置がずれて表示が崩れることがあるため、rowspanは使わず、12ヶ月分すべての行に
+      // 同じ背景色のセルを敷いて、1月の行だけ年度を表示することで見た目上の結合を再現する
+      const yearCellHtml = `<td class="mc2-col1" style="text-align:center;font-weight:600;vertical-align:middle;font-size:11px;padding:2px 1px;${mon < 12 ? 'border-bottom:none;' : ''}">${mon === 1 ? (y + '年') : ''}</td>`;
+      const memberCellsHtml = members.map(m => {
+        const cell = getMultiCell(y, m.id);
+        let val = 1;
+        if (cell.twice.includes(mon)) val = 2;
+        if (cell.zero.includes(mon)) val = 0;
+        const bg = val === 0 ? '#fceaea' : '#ffffff';
+        const selColor = val === 2 ? 'color:#000;font-weight:700;background:#e89090;' : '';
+        return `<td style="text-align:center;background:${bg};padding:1px 0">
+          <select data-mid="${m.id}" data-year="${y}" data-month="${mon}" onchange="onMultiCount2Change(this)" style="width:18px;font-size:10px;padding:1px 0;border-radius:4px;text-align:center;text-align-last:center;${selColor}">
+            <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
+            <option value="2" ${val === 2 ? 'selected' : ''}>2</option>
+            <option value="0" ${val === 0 ? 'selected' : ''}>0</option>
+          </select>
+        </td>`;
+      }).join('');
+      rowsHtml += `<tr>${yearCellHtml}<td class="mc2-col2" style="text-align:center;font-weight:500;font-size:11px;padding:2px 1px">${mon}月</td><td class="mc2-col3" style="text-align:center;color:var(--text-muted);font-size:11px;padding:2px 1px">${dim}</td>${memberCellsHtml}<td id="mc2-row-${y}-${mon}" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td></tr>`;
+    }
+    const memberTotalsHtml = members.map(m => {
+      const total = monthlyValsFromCell(getMultiCell(y, m.id));
+      return `<td id="mc2-year-total-${m.id}-${y}" style="text-align:center;font-weight:700;font-size:11px">${total}</td>`;
+    }).join('');
+    rowsHtml += `<tr class="mc2-total-row"><td class="mc2-col1" colspan="3" style="white-space:nowrap;font-weight:700;padding:4px 4px;font-size:11px">${y}年 年間合計</td>${memberTotalsHtml}<td id="mc2-grand-${y}" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td></tr>`;
+  });
+  body.innerHTML = rowsHtml;
+
+  updateMc2HeaderStickyOffset();
+  years.forEach(y => updateMc2RowValidationForYear(y));
+}
+
+function updateMc2HeaderStickyOffset() {
+  document.querySelectorAll('.mc2-table').forEach(table => {
+    const firstRow = table.querySelector('thead tr:first-child');
+    if (!firstRow) return;
+    const h = firstRow.getBoundingClientRect().height;
+    if (h > 0) table.style.setProperty('--mc2-head1-h', h + 'px');
+  });
+  updateMc2StickyColOffsets();
+}
+
+// 先頭固定列（年度／月／日数）の実際の描画幅を測定し、2列目・3列目のsticky位置(left)を
+// その都度ぴったり合わせる。固定値だと文字量やフォント環境によって実際の列幅とズレて
+// 横スクロール時に列が重なったり隙間ができたりする（＝表示が崩れる）ため、
+// 常に実測値をCSS変数に反映する。
+function updateMc2StickyColOffsets() {
+  document.querySelectorAll('.mc2-table').forEach(table => {
+    const row = table.querySelector('tbody tr');
+    if (!row) return;
+    const c1 = row.querySelector(':scope > .mc2-col1');
+    const c2 = row.querySelector(':scope > .mc2-col2');
+    if (!c1 || !c2) return;
+    const w1 = c1.getBoundingClientRect().width;
+    const w2 = c2.getBoundingClientRect().width;
+    if (w1 > 0) table.style.setProperty('--mc2-col2-left', w1 + 'px');
+    if (w1 > 0 && w2 > 0) table.style.setProperty('--mc2-col3-left', (w1 + w2) + 'px');
+  });
+}
+
+// 表示エリアの高さを「見出し行＋1年分（1月〜12月の12行＋年間合計行の1行＝計13行）」が
+// ちょうど収まる高さに自動調整する（日祝当番月・各メンバーの年間設定 用）
+// これにより、その年の1月〜12月と年間合計行が、続きをスクロールしなくても常に一緒に見える。
+function fitYearBlockHeight(bodyId) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const wrap = body.closest('.annual-wrap');
+  const table = body.closest('table');
+  if (!wrap || !table) return;
+  const thead = table.querySelector('thead');
+  const rows = body.querySelectorAll('tr');
+  // 1年分 = 月の行12 + 年間合計行1 = 13行に満たない場合（未読み込み・メンバー未登録時など）は調整しない
+  if (!thead || rows.length < 13) return;
+  const headHeight = thead.getBoundingClientRect().height;
+  let bodyHeight = 0;
+  for (let i = 0; i < 13; i++) {
+    bodyHeight += rows[i].getBoundingClientRect().height;
+  }
+  // 罫線・端数のずれで最終行がわずかに欠けるのを防ぐための余白
+  const total = Math.ceil(headHeight + bodyHeight) + 3;
+  wrap.style.maxHeight = total + 'px';
+}
+window.addEventListener('resize', () => {
+  updateMc2HeaderStickyOffset();
+  fitYearBlockHeight('mh2-body');
+  fitYearBlockHeight('annual2-body');
+});
+
+// 指定年の各月の行チェック（当番人数合計／その月の日数）と、年間合計行の合計チェックを更新
+function updateMc2RowValidationForYear(y) {
+  const body = document.getElementById('multi-count2-body');
+  if (!body) return;
+  let totalAssigned = 0, totalExpected = 0;
+  for (let mon = 1; mon <= 12; mon++) {
+    const expectedDays = daysInMonth(y, mon);
+    const assignedCount = Array.from(body.querySelectorAll(`select[data-year="${y}"][data-month="${mon}"]`))
+      .reduce((sum, el) => sum + Number(el.value), 0);
+    const ok = assignedCount === expectedDays;
+    totalAssigned += assignedCount;
+    totalExpected += expectedDays;
+    const cellEl = document.getElementById(`mc2-row-${y}-${mon}`);
+    if (cellEl) {
+      cellEl.textContent = `${assignedCount}/${expectedDays} ${ok ? '✓' : '✗'}`;
+      cellEl.style.background = ok ? '#eaf7ea' : '#fdeaea';
+      cellEl.style.color = ok ? '#2e7d32' : '#e89090';
+    }
+  }
+  const okTotal = totalAssigned === totalExpected;
+  const grandEl = document.getElementById(`mc2-grand-${y}`);
+  if (grandEl) {
+    grandEl.textContent = `${totalAssigned}/${totalExpected} ${okTotal ? '✓' : '✗'}`;
+    grandEl.style.background = okTotal ? '#eaf7ea' : '#fdeaea';
+    grandEl.style.color = okTotal ? '#2e7d32' : '#e89090';
+  }
+}
+
+// ②「月ごとの当番回数②」テーブル側のセルを、他画面で行われた変更に合わせてその場で更新する
+function refreshMc2CellFromCache(mid, year) {
+  const body = document.getElementById('multi-count2-body');
+  if (!body) return;
+  const cell = getMultiCell(year, mid);
+  for (let mon = 1; mon <= 12; mon++) {
+    const sel = body.querySelector(`select[data-mid="${mid}"][data-year="${year}"][data-month="${mon}"]`);
+    if (sel) {
+      let val = '1';
+      if (cell.twice.includes(mon)) val = '2';
+      if (cell.zero.includes(mon)) val = '0';
+      sel.value = val;
+      sel.style.color = val === '2' ? '#fff' : '';
+      sel.style.fontWeight = val === '2' ? '700' : '';
+      sel.style.background = val === '2' ? '#e89090' : '';
+      const td = sel.closest('td');
+      if (td) td.style.background = val === '0' ? '#fceaea' : (val === '2' ? '#e89090' : '#ffffff');
+    }
+  }
+  const yearTotalEl = document.getElementById(`mc2-year-total-${mid}-${year}`);
+  if (yearTotalEl) yearTotalEl.textContent = monthlyValsFromCell(cell);
+  updateMc2RowValidationForYear(year);
+}
+
+function onMultiCount2Change(el) {
+  const mid = parseInt(el.dataset.mid);
+  const year = parseInt(el.dataset.year);
+  const month = parseInt(el.dataset.month);
+  const val = el.value;
+  const cell = getMultiCell(year, mid);
+  cell.twice = cell.twice.filter(x => x !== month);
+  cell.zero = cell.zero.filter(x => x !== month);
+  if (val === '2') cell.twice.push(month);
+  if (val === '0') cell.zero.push(month);
+
+  el.style.color = val === '2' ? '#fff' : '';
+  el.style.fontWeight = val === '2' ? '700' : '';
+  el.style.background = val === '2' ? '#e89090' : '';
+  const td = el.closest('td');
+  if (td) td.style.background = val === '0' ? '#fceaea' : (val === '2' ? '#e89090' : '#ffffff');
+
+  const yearTotalEl = document.getElementById(`mc2-year-total-${mid}-${year}`);
+  if (yearTotalEl) yearTotalEl.textContent = monthlyValsFromCell(cell);
+
+  updateMc2RowValidationForYear(year);
+
+  // 「各メンバーの年間設定」にもその場で反映
+  refreshAnnualTable2CellsForYear(mid, year);
+}
+
+async function saveMultiCountPlans2() {
+  const years = getMultiYears('mc2-start-year', 'mc2-year-span');
+  await saveMultiYearPlansForYears(years, 'multi-count2-msg');
+  renderMultiCount2Table(years);
+}
+
+// ---- 日祝当番月（複数年）②（転置レイアウト：メンバーを横・年度/月を縦に並べる） ----
+// データは「日祝当番月（複数年）」と全く同じ annualPlansMulti を共有し、レイアウトのみ異なる。
+async function loadAndRenderMultiHol2() {
+  const years = getMultiYears('mh2-start-year', 'mh2-year-span');
+  await ensureMultiYearsLoaded(years);
+  renderMultiHolTable2(years);
+}
+
+function renderMultiHolTable2(years) {
+  years = years || getMultiYears('mh2-start-year', 'mh2-year-span');
+  const head = document.getElementById('mh2-head');
+  const body = document.getElementById('mh2-body');
+  if (!head || !body) return;
+
+  if (!members.length) {
+    head.innerHTML = '';
+    body.innerHTML = `<tr><td style="text-align:center;color:var(--text-hint)">先にメンバーを登録してください</td></tr>`;
+    return;
+  }
+
+  // 氏名を表示する行（縦書き・最小幅）
+  const nameRow = members.map(m => `<th rowspan="2" style="padding:0;height:64px;width:18px"><div style="display:table;width:100%;height:100%"><div style="display:table-cell;vertical-align:top;text-align:center;padding-top:10px"><span style="display:inline-block;font-size:11px;white-space:nowrap;writing-mode:vertical-rl;text-orientation:upright;letter-spacing:1px;color:#000">${m.name}</span></div></div></th>`).join('');
+
+  head.innerHTML = `
+    <tr>
+      <th class="mc2-col1" rowspan="2" style="width:50px">年度</th>
+      <th class="mc2-col2" rowspan="2" style="width:30px">月</th>
+      <th class="mc2-col3" rowspan="2" style="width:28px">日祝<br>日数</th>
+      ${nameRow}
+      <th rowspan="2" style="width:56px">合計/<br>日祝日数</th>
+    </tr>
+    <tr></tr>
+  `;
+
+  let rowsHtml = '';
+  years.forEach(y => {
+    for (let mon = 1; mon <= 12; mon++) {
+      const expectedHol = sundayHolidayCountInMonth(y, mon);
+      // rowspanをsticky(横スクロール固定)列に使うと、ブラウザによって「年度」セルの
+      // 縦位置がずれて表示が崩れることがあるため、rowspanは使わず、12ヶ月分すべての行に
+      // 同じ背景色のセルを敷いて、1月の行だけ年度を表示することで見た目上の結合を再現する
+      const yearCellHtml = `<td class="mc2-col1" style="text-align:center;font-weight:600;vertical-align:middle;font-size:11px;padding:2px 1px;${mon < 12 ? 'border-bottom:none;' : ''}">${mon === 1 ? (y + '年') : ''}</td>`;
+      const memberCellsHtml = members.map(m => {
+        const cell = getMultiCell(y, m.id);
+        const checked = cell.hol.includes(mon);
+        return `<td style="text-align:center;padding:1px 0"><input type="checkbox" data-mid="${m.id}" data-year="${y}" data-month="${mon}" ${checked ? 'checked' : ''} onchange="onMultiHol2Change(this)" style="width:14px;height:14px;cursor:pointer;accent-color:#e89090"></td>`;
+      }).join('');
+      rowsHtml += `<tr>${yearCellHtml}<td class="mc2-col2" style="text-align:center;font-weight:500;font-size:11px;padding:2px 1px">${mon}月</td><td class="mc2-col3" style="text-align:center;color:var(--text-muted);font-size:11px;padding:2px 1px">${expectedHol}</td>${memberCellsHtml}<td id="mh2-row-${y}-${mon}" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td></tr>`;
+    }
+    const memberTotalsHtml = members.map(m => {
+      const total = getMultiCell(y, m.id).hol.length;
+      return `<td id="mh2-year-total-${m.id}-${y}" style="text-align:center;font-weight:700;font-size:11px">${total}</td>`;
+    }).join('');
+    rowsHtml += `<tr class="mc2-total-row"><td class="mc2-col1" colspan="3" style="white-space:nowrap;font-weight:700;padding:4px 4px;font-size:11px">${y}年 年間合計</td>${memberTotalsHtml}<td id="mh2-grand-${y}" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td></tr>`;
+  });
+  body.innerHTML = rowsHtml;
+
+  updateMc2HeaderStickyOffset();
+  fitYearBlockHeight('mh2-body');
+  years.forEach(y => updateMh2RowValidationForYear(y));
+}
+
+// 指定年の各月の行チェック（日祝当番人数合計／その月の日祝日数）と、年間合計行の合計チェックを更新
+function updateMh2RowValidationForYear(y) {
+  const body = document.getElementById('mh2-body');
+  if (!body) return;
+  let totalAssigned = 0, totalExpected = 0;
+  for (let mon = 1; mon <= 12; mon++) {
+    const expectedHol = sundayHolidayCountInMonth(y, mon);
+    const assignedHol = body.querySelectorAll(`input[data-year="${y}"][data-month="${mon}"]:checked`).length;
+    const ok = assignedHol === expectedHol;
+    totalAssigned += assignedHol;
+    totalExpected += expectedHol;
+    const cellEl = document.getElementById(`mh2-row-${y}-${mon}`);
+    if (cellEl) {
+      cellEl.textContent = `${assignedHol}/${expectedHol} ${ok ? '✓' : '✗'}`;
+      cellEl.style.background = ok ? '#eaf7ea' : '#fdeaea';
+      cellEl.style.color = ok ? '#2e7d32' : '#e89090';
+    }
+  }
+  const okTotal = totalAssigned === totalExpected;
+  const grandEl = document.getElementById(`mh2-grand-${y}`);
+  if (grandEl) {
+    grandEl.textContent = `${totalAssigned}/${totalExpected} ${okTotal ? '✓' : '✗'}`;
+    grandEl.style.background = okTotal ? '#eaf7ea' : '#fdeaea';
+    grandEl.style.color = okTotal ? '#2e7d32' : '#e89090';
+  }
+}
+
+// 「日祝当番月（複数年）②」テーブル側のセルを、他画面で行われた変更に合わせてその場で更新する
+function refreshMh2CellFromCache(mid, year) {
+  const body = document.getElementById('mh2-body');
+  if (!body) return;
+  const cell = getMultiCell(year, mid);
+  for (let mon = 1; mon <= 12; mon++) {
+    const chk = body.querySelector(`input[data-mid="${mid}"][data-year="${year}"][data-month="${mon}"]`);
+    if (chk) chk.checked = cell.hol.includes(mon);
+  }
+  const yearTotalEl = document.getElementById(`mh2-year-total-${mid}-${year}`);
+  if (yearTotalEl) yearTotalEl.textContent = cell.hol.length;
+  updateMh2RowValidationForYear(year);
+}
+
+function onMultiHol2Change(el) {
+  const mid = parseInt(el.dataset.mid);
+  const year = parseInt(el.dataset.year);
+  const month = parseInt(el.dataset.month);
+  const cell = getMultiCell(year, mid);
+  cell.hol = cell.hol.filter(x => x !== month);
+  if (el.checked) cell.hol.push(month);
+
+  const yearTotalEl = document.getElementById(`mh2-year-total-${mid}-${year}`);
+  if (yearTotalEl) yearTotalEl.textContent = cell.hol.length;
+
+  updateMh2RowValidationForYear(year);
+
+  // 「各メンバーの年間設定」にもその場で反映
+  refreshAnnualTable2CellsForYear(mid, year);
+}
+
+async function saveMultiHolPlans2() {
+  const years = getMultiYears('mh2-start-year', 'mh2-year-span');
+  await saveMultiYearPlansForYears(years, 'mh2-msg');
+  renderMultiHolTable2(years);
+}
+
+// 選択中の年度と一致していれば「各メンバーの年間設定」テーブルにその場で反映する
+// 指定した年度の一覧を、annual_plans テーブルへまとめて保存する共通処理
+async function saveMultiYearPlansForYears(years, msgElId) {
+  showMsg(msgElId, '保存中...', 'info');
+
+  const rows = [];
+  years.forEach(y => {
+    members.forEach(m => {
+      const cell = getMultiCell(y, m.id);
+      rows.push({
+        member_id: m.id,
+        year: y,
+        target_count: monthlyValsFromCell(cell),
+        monthly_twice_months: cell.twice,
+        monthly_zero_months: cell.zero,
+        holiday_months: cell.hol
+      });
+    });
+  });
+
+  const SUPABASE_URL = localStorage.getItem('sb_url') || 'https://thwlerletbndqqtrodub.supabase.co';
+  const SUPABASE_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRod2xlcmxldGJuZHFxdHJvZHViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTkzNzQsImV4cCI6MjA5NzM5NTM3NH0.DZDm7ofonli2ncqjQF4fUP3c83V3qLwOf12lc5cltEo';
+  let errMsg = null;
+
+  for (const row of rows) {
+    await fetch(`${SUPABASE_URL}/rest/v1/annual_plans?member_id=eq.${row.member_id}&year=eq.${row.year}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/annual_plans`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify(row)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      errMsg = err.message || res.status;
+      break;
+    }
+  }
+
+  if (errMsg) { showMsg(msgElId, '保存エラー: ' + errMsg, 'error'); return; }
+  showMsg(msgElId, `${rows.length}件（${years[0]}年〜${years[years.length - 1]}年）の年間予定をまとめて保存しました ✓`, 'success');
+
+  renderAnnualTable2();
+  await ensureMultiYearsLoaded(years, true);
+}
+
+// =============================================
+// Unavailable Dates (支障日管理)
+// =============================================
+function populateMemberSelects() {
+  const selects = ['u-member', 'u-filter-member', 'day-modal-member'];
+  selects.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = '<option value="">全メンバー / 未設定</option>';
+    members.forEach(m => { el.innerHTML += `<option value="${m.id}">${m.name}</option>`; });
+    if (cur) el.value = cur;
+  });
+}
+
+function onUnavailMonthChange() {
+  const m = document.getElementById('u-summary-month').value;
+  document.getElementById('u-matrix-month').value = m;
+  document.getElementById('u-cal-month').value = m;
+  loadUnavailable();
+  loadUnavailSummary();
+  renderUnavailCalendar();
+}
+
+async function renderUnavailCalendar() {
+  const mid = document.getElementById('u-member').value;
+  const mon = document.getElementById('u-cal-month').value;
+  const wrap = document.getElementById('unavail-cal-wrap');
+  if (!mid || !mon) {
+    wrap.innerHTML = '<p style="color:var(--text-hint);font-size:13px">メンバーと対象月を選択するとカレンダーが表示されます。</p>';
+    return;
+  }
+  const [year, month] = mon.split('-').map(Number);
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  // DBから直接この月・このメンバーの登録済み支障日を取得（DOM依存をやめて確実に）
+  const registeredDates = new Set();
+  try {
+    const { data } = await sbClient
+      .from('unavailable_dates')
+      .select('blocked_date')
+      .eq('member_id', parseInt(mid))
+      .gte('blocked_date', mon + '-01')
+      .lte('blocked_date', lastDayOfMonth(mon));
+    (data || []).forEach(r => registeredDates.add(r.blocked_date));
+  } catch(e) {
+    console.warn('[renderUnavailCalendar]', e.message);
+  }
+
+  let html = '<style>.unavail-cal{border-collapse:collapse;width:100%}.unavail-cal th{padding:6px;font-size:12px;text-align:center;border:1px solid var(--border)}.unavail-cal td{width:14.28%;padding:4px;text-align:center;border:1px solid var(--border);cursor:pointer;font-size:13px;vertical-align:top;min-height:36px}.unavail-cal td.empty{cursor:default}.unavail-cal td.selected{background:#fee2e2;color:#e89090;font-weight:600}.unavail-cal td.registered{background:#fecaca;color:#e89090;font-weight:600}.unavail-cal td.sunday{color:var(--danger)}.unavail-cal td.saturday{color:var(--info)}</style>';
+  html += '<table class="unavail-cal"><thead><tr>';
+  DOW_JP.forEach((d, i) => {
+    const color = i===0?'color:var(--danger)':i===6?'color:var(--info)':'';
+    html += `<th style="${color}">${d}</th>`;
+  });
+  html += '</tr></thead><tbody><tr>';
+  for (let i = 0; i < firstDay; i++) html += '<td class="empty"></td>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = (firstDay + d - 1) % 7;
+    const isSelected = selectedUnavailDates.has(dateStr);
+    const isRegistered = registeredDates.has(dateStr);
+    const isHol = !!holidays[dateStr];
+    const holLabel = isHol ? ((/振.?替.?え?休日/.test(holidays[dateStr])) ? '振替休日' : '祝') : '';
+    let cls = '';
+    if (dow === 0 || isHol) cls += ' sunday';
+    else if (dow === 6) cls += ' saturday';
+    if (isRegistered) cls += ' registered';
+    else if (isSelected) cls += ' selected';
+    html += `<td class="${cls.trim()}" onclick="toggleUnavailDate('${dateStr}')" data-date="${dateStr}"><div style="display:flex;align-items:center;justify-content:center"><span>${d}</span><span style="display:inline-block;width:36px;text-align:left;margin-left:5px;font-size:9px;white-space:nowrap">${holLabel}</span></div></td>`;
+    if ((firstDay + d) % 7 === 0 && d < daysInMonth) html += '</tr><tr>';
+  }
+  html += '</tr></tbody></table>';
+  wrap.innerHTML = html;
+}
+
+async function toggleUnavailDate(dateStr) {
+  if (selectedUnavailDates.has(dateStr)) { selectedUnavailDates.delete(dateStr); } else { selectedUnavailDates.add(dateStr); }
+  await renderUnavailCalendar();
+}
+
+async function clearUnavailSelection() {
+  selectedUnavailDates.clear();
+  // DOM上の選択色も即座に消す（非同期再描画を待たずに）
+  document.querySelectorAll('.unavail-cal td.selected').forEach(td => td.classList.remove('selected'));
+  await renderUnavailCalendar();
+}
+
+async function clearRegisteredForMonth() {
+  const mid = document.getElementById('u-member').value;
+  const mon = document.getElementById('u-cal-month').value;
+  if (!mid || !mon) { showMsg('unavail-msg', 'メンバーと対象月を選択してください', 'error'); return; }
+  const memberName = members.find(m => m.id == mid)?.name || '';
+  if (!confirm(`${memberName} さんの ${mon} の登録済み支障日をすべて削除しますか？`)) return;
+
+  const { error } = await sbClient.from('unavailable_dates')
+    .delete()
+    .eq('member_id', parseInt(mid))
+    .gte('blocked_date', mon + '-01')
+    .lte('blocked_date', lastDayOfMonth(mon));
+
+  if (error) { showMsg('unavail-msg', '削除エラー: ' + error.message, 'error'); return; }
+
+  showMsg('unavail-msg', `${memberName} さんの ${mon} の支障日を削除しました ✓`, 'success');
+  document.getElementById('u-matrix-month').value = mon;
+  document.getElementById('u-summary-month').value = mon;
+  await loadUnavailable();
+  await loadUnavailSummary();
+  await renderUnavailCalendar();
+}
+
+let isSavingUnavail = false;
+async function addUnavailableBulk() {
+  if (isSavingUnavail) return;
+  const mid = document.getElementById('u-member').value;
+  const calMonthVal = document.getElementById('u-cal-month').value;
+  if (!mid) { showMsg('unavail-msg', 'メンバーを選択してください', 'error'); return; }
+  if (selectedUnavailDates.size === 0) { showMsg('unavail-msg', '日付を選択してください', 'error'); return; }
+  
+  isSavingUnavail = true;
+  const rows = [...selectedUnavailDates].map(date => ({
+    member_id: parseInt(mid),
+    blocked_date: date,
+    reason: null
+  }));
+  
+  showMsg('unavail-msg', 'データベースに保存中...', 'info');
+  const { error } = await sbClient.from('unavailable_dates').upsert(rows, { onConflict: 'member_id,blocked_date' });
+  
+  if (error) { 
+    let errDetail = `<strong>保存エラーが発生しました</strong><br>メッセージ: ${error.message || 'なし'}`;
+    showMsg('unavail-msg', errDetail, 'error'); 
+    isSavingUnavail = false;
+    return; 
+  }
+  
+  showMsg('unavail-msg', `${rows.length}件の支障日を正常に登録しました ✓`, 'success');
+  selectedUnavailDates.clear();
+  document.querySelectorAll('.unavail-cal td.selected').forEach(td => td.classList.remove('selected'));
+  
+  if (calMonthVal) {
+    document.getElementById('u-matrix-month').value = calMonthVal;
+    document.getElementById('u-summary-month').value = calMonthVal;
+  }
+
+  await loadUnavailable();
+  await loadUnavailSummary(); 
+  await renderUnavailCalendar();
+  isSavingUnavail = false;
+}
+
+async function loadUnavailable() {
+  const mon = document.getElementById('u-matrix-month').value;
+  if (!mon) return;
+  const [year, month] = mon.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const head = document.getElementById('unavail-matrix-head');
+  let headHtml = '<tr><th style="text-align:left;min-width:44px;padding-left:3px;background:var(--bg)">氏名</th><th style="width:20px;min-width:20px;max-width:20px;background:var(--bg)">回数</th><th style="width:20px;min-width:20px;max-width:20px;background:var(--bg)">日祝</th>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = !!holidays[dateStr];
+    const isDutyDecided = !!(schedules[dateStr] && schedules[dateStr].member_id);
+
+    let thBg = '#ffffff';
+    let thColor = 'inherit';
+    if (dow === 0 || isHol) { thBg = '#fceaea'; thColor = 'var(--danger)'; }
+    if (isDutyDecided) { thBg = '#fff59d'; }
+
+    const thHtml = `<th style="background:${thBg};color:${thColor}" title="${isDutyDecided ? '当番日決定済み' : ''}">${d}<br><span style="font-size:9px">${DOW_JP[dow]}</span></th>`;
+    headHtml += thHtml;
+  }
+  headHtml += '</tr>';
+  head.innerHTML = headHtml;
+
+  const { data, error } = await sbClient
+    .from('unavailable_dates')
+    .select('*')
+    .gte('blocked_date', mon + '-01')
+    .lte('blocked_date', lastDayOfMonth(mon));
+
+  // この年の月2回・0回当番設定を取得（表示中の年間計画の年と異なる場合もあるため直接取得）
+  const twiceMonthMap = {};
+  const zeroMonthMap = {};
+  const holMonthMap = {};
+  try {
+    const { data: planData } = await sbClient
+      .from('annual_plans')
+      .select('member_id, monthly_twice_months, monthly_zero_months, holiday_months')
+      .eq('year', year);
+    (planData || []).forEach(p => {
+      twiceMonthMap[p.member_id] = (p.monthly_twice_months || []).map(Number);
+      zeroMonthMap[p.member_id] = (p.monthly_zero_months || []).map(Number);
+      holMonthMap[p.member_id] = (p.holiday_months || []).map(Number);
+    });
+  } catch(e) { console.warn('[loadUnavailable twice]', e.message); }
+
+  const body = document.getElementById('unavail-matrix-body');
+  if (!members.length) {
+    body.innerHTML = '<tr><td colspan="38" style="text-align:center;color:var(--text-hint);padding:16px">先に詰員名簿でメンバーを登録してください</td></tr>';
+    return;
+  }
+
+  const unavailMap = {};
+  if (data) {
+    data.forEach(u => { unavailMap[`${u.member_id}_${u.blocked_date}`] = u; });
+  }
+
+  // 前月の各メンバー最終（2回当番月なら2回目）の当番日を求め、
+  // その翌日から中8日間（8日間）を「灰色表示」の対象期間とする
+  const prevMonthDate = new Date(year, month - 2, 1);
+  const prevPrefix = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-`;
+  const lastDutyMap = {};
+  Object.keys(schedules).forEach(dateStr => {
+    if (!dateStr.startsWith(prevPrefix)) return;
+    const rec = schedules[dateStr];
+    if (!rec || !rec.member_id) return;
+    const mid = rec.member_id;
+    if (!lastDutyMap[mid] || dateStr > lastDutyMap[mid]) lastDutyMap[mid] = dateStr;
+  });
+  const fmtDate = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  const grayWindowMap = {};
+  Object.keys(lastDutyMap).forEach(mid => {
+    const base = new Date(lastDutyMap[mid] + 'T00:00:00');
+    const start = new Date(base); start.setDate(start.getDate() + 1);
+    const end = new Date(base); end.setDate(end.getDate() + 8);
+    grayWindowMap[mid] = { start: fmtDate(start), end: fmtDate(end) };
+  });
+
+  let bodyHtml = '';
+  members.forEach(m => {
+    const isTwice = (twiceMonthMap[m.id] || []).includes(month);
+    const isZero = (zeroMonthMap[m.id] || []).includes(month);
+    const isHolDuty = (holMonthMap[m.id] || []).includes(month);
+
+    const twiceCell = isZero ? '<span style="color:var(--danger)">0回</span>' : (isTwice ? '2回' : '');
+    const holCellBg = isHolDuty ? 'background:#e89090' : '';
+
+    bodyHtml += `<tr>
+      <td style="white-space:nowrap;font-weight:500;text-align:left;padding-left:3px;background:var(--surface);font-size:10px">${m.name}</td>
+      <td style="width:20px;min-width:20px;max-width:20px;text-align:center;background:var(--surface);font-size:9px;color:#2e7d32;font-weight:500">${twiceCell}</td>
+      <td style="width:20px;min-width:20px;max-width:20px;text-align:center;${holCellBg}"></td>`;
+    
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dow = new Date(dateStr + 'T00:00:00').getDay();
+      const isHol = !!holidays[dateStr];
+      const record = unavailMap[`${m.id}_${dateStr}`];
+      
+      let tdBg = '#ffffff';
+      if (dow === 0 || isHol) tdBg = '#fffafb';
+
+      let cellContent = '';
+      let cellTitle = `${m.name}: ${dateStr}`;
+      let clickAction = '';
+
+      if (record) {
+        // 登録されている支障日はチェックマークを表示せず、背景の塗りつぶしのみで示す
+        cellContent = '';
+        cellTitle += ' (登録済み支障日・クリックで削除)';
+        clickAction = `onclick="removeMatrixRecord('${record.id}')"`;
+        tdBg = '#fff1f1';
+      } else {
+        clickAction = `onclick="addMatrixDirect('${m.id}', '${dateStr}', '${m.name}')"`;
+        cellTitle += ' (クリックで支障日として新規登録)';
+      }
+
+      // 前月当番日からの中8日ルールにより灰色表示（背景を最優先で上書き）
+      const win = grayWindowMap[m.id];
+      if (win && dateStr >= win.start && dateStr <= win.end) {
+        tdBg = '#c9c9c9';
+        cellTitle += ' (前月当番からの中8日期間)';
+      }
+
+      // 当番表生成・保存済みで、この日の当番がこのメンバーに決定している場合は黄色で最優先表示
+      const isAssignedToThisMember = !!(schedules[dateStr] && schedules[dateStr].member_id == m.id);
+      if (isAssignedToThisMember) {
+        tdBg = '#fff59d';
+        cellTitle += ' (この日の当番に決定済み)';
+      }
+
+      bodyHtml += `<td style="background:${tdBg}" title="${cellTitle}" class="matrix-cell-clickable" data-date-str="${dateStr}" ${clickAction}>${cellContent}</td>`;
+    }
+    bodyHtml += '</tr>';
+  });
+
+  body.innerHTML = bodyHtml;
+  updateUnavailMatrixStickyOffsets();
+}
+
+// 支障日一覧表：氏名・回数列の実際の描画幅を測定し、2列目(回数)・3列目(日祝)の
+// sticky位置(left)を正確に合わせる（氏名の長さによって列幅が変わっても崩れないようにする）
+function updateUnavailMatrixStickyOffsets() {
+  const wrap = document.querySelector('.unavail-matrix-wrap');
+  if (!wrap) return;
+  const table = wrap.querySelector('.matrix-table');
+  const row = table && table.querySelector('tbody tr');
+  if (!row || row.children.length < 3) return;
+  const w1 = row.children[0].getBoundingClientRect().width;
+  const w2 = row.children[1].getBoundingClientRect().width;
+  if (w1 > 0) table.style.setProperty('--unavail-col2-left', w1 + 'px');
+  if (w1 > 0 && w2 > 0) table.style.setProperty('--unavail-col3-left', (w1 + w2) + 'px');
+}
+window.addEventListener('resize', updateUnavailMatrixStickyOffsets);
+
+async function removeMatrixRecord(id) {
+  if (!confirm('この支障日を削除しますか？')) return;
+  await sbClient.from('unavailable_dates').delete().eq('id', id);
+  await loadUnavailable();
+  await loadUnavailSummary();
+  await renderUnavailCalendar();
+}
+
+async function addMatrixDirect(memberId, dateStr, name) {
+  if (!confirm(`${name} さんの支障日に ${dateStr} を追加登録しますか？`)) return;
+  await sbClient.from('unavailable_dates').insert([{ member_id: parseInt(memberId), blocked_date: dateStr }]);
+  await loadUnavailable();
+  await loadUnavailSummary();
+  await renderUnavailCalendar();
+}
+
+async function loadUnavailSummary() {
+  const mon = document.getElementById('u-summary-month').value;
+  if (!mon) return;
+  const { data } = await sbClient.from('unavailable_dates')
+    .select('member_id, confirmed')
+    .gte('blocked_date', mon + '-01')
+    .lte('blocked_date', lastDayOfMonth(mon));
+  const container = document.getElementById('unavail-summary');
+  // member_id ごとに「支障日の総数」と「確認済みの数」を集計する
+  const stats = {};
+  (data || []).forEach(d => {
+    if (!stats[d.member_id]) stats[d.member_id] = { total: 0, confirmed: 0 };
+    stats[d.member_id].total++;
+    if (d.confirmed) stats[d.member_id].confirmed++;
+  });
+  const anyDates = members.some(m => stats[m.id] && stats[m.id].total > 0);
+  if (!anyDates) { container.innerHTML = '<div style="color:var(--text-hint);font-size:13px;grid-column:1/-1">登録なし</div>'; return; }
+
+  container.innerHTML = members.map(m => {
+    const s = stats[m.id];
+    if (!s || s.total === 0) {
+      return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:4px 8px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap"><span style="font-weight:500">${m.name}</span><span style="color:var(--text-hint);font-size:11px">登録なし</span></div>`;
+    }
+    const allConfirmed = s.confirmed >= s.total;
+    if (allConfirmed) {
+      return `<div style="background:#eef6e6;border:1px solid #9cc47a;border-radius:var(--radius);padding:4px 8px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap"><span style="font-weight:600">${m.name}</span><span style="display:flex;align-items:center;gap:5px"><span style="color:#3d7a1e;font-size:11px;font-weight:600">✓確認済 ${s.total}件</span><button class="btn btn-sm" style="padding:1px 7px;font-size:10px" onclick="unconfirmMemberMonth(${m.id})">取消</button></span></div>`;
+    }
+    return `<div style="background:#fff7e6;border:1px solid #e0b45a;border-radius:var(--radius);padding:4px 8px;font-size:12px;display:flex;align-items:center;justify-content:space-between;gap:6px;white-space:nowrap"><span style="font-weight:600">${m.name}</span><span style="display:flex;align-items:center;gap:5px"><span style="color:#a86a00;font-size:11px;font-weight:600">未確認 ${s.total - s.confirmed}/${s.total}件</span><button class="btn btn-sm btn-primary" style="padding:1px 7px;font-size:10px" onclick="confirmMemberMonth(${m.id})">確認</button></span></div>`;
+  }).join('');
+}
+
+// 指定した詰員の「当月の支障日」をすべて確認済みにする
+async function confirmMemberMonth(memberId) {
+  const mon = document.getElementById('u-summary-month').value;
+  if (!mon) return;
+  const memberName = members.find(m => m.id == memberId)?.name || '';
+  showMsg('unavail-confirm-msg', '<span class="spinner"></span> 確認処理中...', 'info');
+  const { error } = await sbClient.from('unavailable_dates')
+    .update({ confirmed: true, confirmed_at: new Date().toISOString(), confirmed_by: '管理者' })
+    .eq('member_id', memberId)
+    .gte('blocked_date', mon + '-01')
+    .lte('blocked_date', lastDayOfMonth(mon));
+  if (error) { showMsg('unavail-confirm-msg', '確認処理エラー: ' + error.message, 'error'); return; }
+  showMsg('unavail-confirm-msg', `${memberName} さんの ${mon} の支障日を確認済みにしました ✓`, 'success');
+  await loadUnavailSummary();
+  await loadUnavailable();
+}
+
+// 指定した詰員の「当月の支障日」の確認済みを取り消す
+async function unconfirmMemberMonth(memberId) {
+  const mon = document.getElementById('u-summary-month').value;
+  if (!mon) return;
+  const memberName = members.find(m => m.id == memberId)?.name || '';
+  if (!confirm(`${memberName} さんの ${mon} の「確認済み」を取り消しますか？`)) return;
+  showMsg('unavail-confirm-msg', '<span class="spinner"></span> 取消処理中...', 'info');
+  const { error } = await sbClient.from('unavailable_dates')
+    .update({ confirmed: false, confirmed_at: null, confirmed_by: null })
+    .eq('member_id', memberId)
+    .gte('blocked_date', mon + '-01')
+    .lte('blocked_date', lastDayOfMonth(mon));
+  if (error) { showMsg('unavail-confirm-msg', '取消エラー: ' + error.message, 'error'); return; }
+  showMsg('unavail-confirm-msg', `${memberName} さんの ${mon} の確認済みを取り消しました`, 'success');
+  await loadUnavailSummary();
+  await loadUnavailable();
+}
+
+// =============================================
+// Auto Generator Logic
+// =============================================
+// 「２回の人だけ先に割り当てる」：月2回設定の人だけを対象に、支障日・前回当番からの間隔（8日間、絶対条件）・
+// 日祝適性・年間目標回数などを考慮しながら、その月の2回分の枠を優先的にプレビューへ割り当てる。
+// ここで割り当てられた日はロック状態でプレビューに反映されるため、続けて「当番表を作成」を押すと
+// 残りの日だけが他のメンバーで自動的に埋まる（月2回の人の枠を後から動かされる心配がない）。
+async function assignTwiceMembersFirst() {
+  const monthStr = document.getElementById('gen-month').value;
+  if (!monthStr) { showMsg('gen-msg', '対象月を選択してください', 'error'); return; }
+  if (!members.length) { showMsg('gen-msg', 'メンバーが登録されていません', 'error'); return; }
+
+  showMsg('gen-msg', '<span class="spinner"></span> 月2回の人を優先割り当て中...', 'info');
+
+  const [year, month] = monthStr.split('-').map(Number);
+  const serviceDays = getServiceMonthDays(year, month);
+  const monthNum = month;
+  const rangeStart = serviceDays[0].dateStr;
+  const rangeEnd = serviceDays[serviceDays.length - 1].dateStr;
+
+  // 既にプレビュー上でロックされている日はそのまま維持する
+  const prevPreviewLocked = {};
+  generatedSchedule.forEach(r => { if (r.locked && r.member_id) prevPreviewLocked[r.date] = r.member_id; });
+
+  const { data: unavailData } = await sbClient.from('unavailable_dates').select('member_id, blocked_date').gte('blocked_date', rangeStart).lte('blocked_date', rangeEnd);
+  const unavailMap = {};
+  (unavailData || []).forEach(u => {
+    if (!unavailMap[u.blocked_date]) unavailMap[u.blocked_date] = new Set();
+    unavailMap[u.blocked_date].add(u.member_id);
+  });
+
+  const prevDate = new Date(year, month - 2, 1);
+  const { data: prevSched } = await sbClient.from('annual_roster').select('duty_date, member_id').gte('duty_date', prevDate.toISOString().slice(0,10)).lt('duty_date', `${year}-${String(month).padStart(2,'0')}-01`);
+  const lastAssigned = {};
+  (prevSched || []).forEach(s => {
+    if (!lastAssigned[s.member_id] || s.duty_date > lastAssigned[s.member_id]) { lastAssigned[s.member_id] = s.duty_date; }
+  });
+
+  const { data: plans } = await sbClient.from('annual_plans').select('*').eq('year', year);
+  const planMap = {};
+  (plans || []).forEach(p => { planMap[p.member_id] = p; });
+
+  const { data: yearSched } = await sbClient.from('annual_roster').select('duty_date, member_id, is_holiday').gte('duty_date', `${year}-01-01`).lt('duty_date', `${year}-${String(month).padStart(2,'0')}-01`);
+  const yearCount = {};
+  (yearSched || []).forEach(s => { yearCount[s.member_id] = (yearCount[s.member_id] || 0) + 1; });
+
+  const twiceMembers = new Set();
+  const holidayMembers = new Set();
+  members.forEach(m => {
+    const p = planMap[m.id];
+    if (p && (p.monthly_twice_months || []).includes(monthNum)) twiceMembers.add(m.id);
+    if (p && (p.holiday_months || []).map(Number).includes(monthNum)) holidayMembers.add(m.id);
+  });
+
+  const twiceMemberList = members.filter(m => twiceMembers.has(m.id));
+  if (!twiceMemberList.length) {
+    showMsg('gen-msg', 'この月は「月2回」設定の人がいません', 'error');
+    return;
+  }
+
+  const monthCount = {};
+
+  // hard 制約（支障日）はどの段階でも絶対に緩めない。それ以外（前回当番からの間隔／
+  // 日祝の可否／年間目標回数）は、月2回の人の中で候補がどうしても見つからない場合にのみ
+  // 段階的に緩める（generateSchedule() の考え方と同じ）。
+  function getCandidates(dateStr, isSpecialDay, opts) {
+    return twiceMemberList.map(m => {
+      if ((unavailMap[dateStr] || new Set()).has(m.id)) return null; // hard: 支障日
+
+      if (!opts.ignoreInterval) {
+        const lastDate = lastAssigned[m.id];
+        if (lastDate) {
+          const diff = (new Date(dateStr) - new Date(lastDate)) / 86400000;
+          if (diff < opts.minGap) return null;
+        }
+      }
+
+      if (!opts.ignoreMonthlyCap) {
+        if ((monthCount[m.id] || 0) >= 2) return null;
+      }
+
+      if (!opts.ignoreYearTarget) {
+        const p = planMap[m.id];
+        const yearTgt = p ? (p.target_count || 12) : 12;
+        if ((yearCount[m.id] || 0) >= yearTgt) return null;
+      }
+
+      // 日祝の日は「日祝」設定がある人を優先。平日は月2回の人であれば日祝設定の有無を問わない。
+      if (!opts.ignoreHolidayMatch) {
+        if (isSpecialDay && !holidayMembers.has(m.id)) return null;
+      }
+
+      return m;
+    }).filter(Boolean);
+  }
+
+  function sortFair(list) {
+    list.sort((a, b) => {
+      const cntA = monthCount[a.id] || 0;
+      const cntB = monthCount[b.id] || 0;
+      if (cntA !== cntB) return cntA - cntB;
+
+      const dateA = lastAssigned[a.id] ? new Date(lastAssigned[a.id]) : new Date(2000, 0, 1);
+      const dateB = lastAssigned[b.id] ? new Date(lastAssigned[b.id]) : new Date(2000, 0, 1);
+      return dateA - dateB;
+    });
+    return list;
+  }
+
+  // 月2回の人については「前回当番から8日間空ける」を絶対条件とし、どんな場合でも緩めない。
+  // 候補がどうしても見つからない場合は、日祝の可否→年間目標回数の順にのみ緩め、
+  // それでも見つからなければその日は割り当てず「未割当」のままにする
+  // （後で「当番表を作成」を押した際に、他のメンバーで埋められる）。
+  const RELAX_TIERS = [
+    { minGap: 8 },
+    { minGap: 8, ignoreHolidayMatch: true },
+    { minGap: 8, ignoreHolidayMatch: true, ignoreYearTarget: true }
+  ];
+
+  function pick(dateStr, isSpecialDay) {
+    for (const opts of RELAX_TIERS) {
+      const cands = sortFair(getCandidates(dateStr, isSpecialDay, opts));
+      if (cands.length > 0) return cands[0];
+    }
+    return null;
+  }
+
+  const result = [];
+  for (const sd of serviceDays) {
+    const dateStr = sd.dateStr;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = !!holidays[dateStr];
+    const isSpecialDay = (dow === 0 || isHol);
+
+    // 既にロック済み（カレンダー保存済みロック or 前回プレビューのロック）の日はそのまま維持する
+    const existingSched = schedules[dateStr];
+    const dbLockedMemberId = (existingSched && existingSched.locked && existingSched.member_id) ? existingSched.member_id : null;
+    const previewLockedMemberId = prevPreviewLocked[dateStr] || null;
+    const lockedMemberId = dbLockedMemberId || previewLockedMemberId;
+    if (lockedMemberId) {
+      const lockedMember = members.find(m => m.id === lockedMemberId) || null;
+      result.push({ date: dateStr, dow, isHol, member: lockedMember, member_id: lockedMemberId, locked: true });
+      if (twiceMembers.has(lockedMemberId)) {
+        lastAssigned[lockedMemberId] = dateStr;
+        monthCount[lockedMemberId] = (monthCount[lockedMemberId] || 0) + 1;
+      }
+      continue;
+    }
+
+    // 月2回の人が全員2枠とも埋まっていれば、この日はまだ割り当てず「未割当」のままにしておく
+    // （続けて「当番表を作成」を押した時に、他のメンバーで自動的に埋められる）
+    const anyRemaining = twiceMemberList.some(m => (monthCount[m.id] || 0) < 2);
+    const chosen = anyRemaining ? pick(dateStr, isSpecialDay) : null;
+
+    result.push({
+      date: dateStr,
+      dow,
+      isHol,
+      member: chosen,
+      member_id: chosen ? chosen.id : null,
+      locked: !!chosen
+    });
+
+    if (chosen) {
+      lastAssigned[chosen.id] = dateStr;
+      monthCount[chosen.id] = (monthCount[chosen.id] || 0) + 1;
+    }
+  }
+
+  generatedSchedule = result;
+  renderGenPreview();
+
+  const filled = twiceMemberList.reduce((s, m) => s + (monthCount[m.id] || 0), 0);
+  const target = twiceMemberList.length * 2;
+  if (filled < target) {
+    showMsg('gen-msg', `月2回の人を ${filled}/${target} 枠 割り当てました（支障日等の都合で一部割り当てできませんでした）。続けて「当番表を作成」を押すと残りの日を自動で埋められます。`, 'error');
+  } else {
+    showMsg('gen-msg', `月2回の人（${twiceMemberList.length}名・計${target}枠）をすべて優先割り当てしました。続けて「当番表を作成」を押すと残りの日を自動で埋められます。`, 'success');
+  }
+}
+
+// 「日祝当番の人を割り当てる」：日曜・祝日（振替休日含む）だけを対象に、年間予定で「日祝」に
+// チェックがある人を優先的にプレビューへ割り当てる。平日の枠には一切触れず「未割当」のまま残す。
+// 支障日（hard）・前回当番から8日間空ける（絶対条件）は必ず守り、月の上限回数（1回／2回）・
+// 年間目標回数は、日祝の人の中でどうしても候補が見つからない場合にのみ段階的に緩める。
+// ここで割り当てた日はロック状態でプレビューに反映されるため、続けて「当番表を作成」を押すと
+// 残りの日（平日など）だけが他のメンバーで自動的に埋まる。
+async function assignHolidayMembersFirst() {
+  const monthStr = document.getElementById('gen-month').value;
+  if (!monthStr) { showMsg('gen-msg', '対象月を選択してください', 'error'); return; }
+  if (!members.length) { showMsg('gen-msg', 'メンバーが登録されていません', 'error'); return; }
+
+  showMsg('gen-msg', '<span class="spinner"></span> 日祝当番の人を優先割り当て中...', 'info');
+
+  const [year, month] = monthStr.split('-').map(Number);
+  const serviceDays = getServiceMonthDays(year, month);
+  const monthNum = month;
+  const rangeStart = serviceDays[0].dateStr;
+  const rangeEnd = serviceDays[serviceDays.length - 1].dateStr;
+
+  // 既にプレビュー上でロックされている日はそのまま維持する
+  const prevPreviewLocked = {};
+  generatedSchedule.forEach(r => { if (r.locked && r.member_id) prevPreviewLocked[r.date] = r.member_id; });
+
+  const { data: unavailData } = await sbClient.from('unavailable_dates').select('member_id, blocked_date').gte('blocked_date', rangeStart).lte('blocked_date', rangeEnd);
+  const unavailMap = {};
+  (unavailData || []).forEach(u => {
+    if (!unavailMap[u.blocked_date]) unavailMap[u.blocked_date] = new Set();
+    unavailMap[u.blocked_date].add(u.member_id);
+  });
+
+  const prevDate = new Date(year, month - 2, 1);
+  const { data: prevSched } = await sbClient.from('annual_roster').select('duty_date, member_id').gte('duty_date', prevDate.toISOString().slice(0,10)).lt('duty_date', `${year}-${String(month).padStart(2,'0')}-01`);
+  const lastAssigned = {};
+  (prevSched || []).forEach(s => {
+    if (!lastAssigned[s.member_id] || s.duty_date > lastAssigned[s.member_id]) { lastAssigned[s.member_id] = s.duty_date; }
+  });
+
+  const { data: plans } = await sbClient.from('annual_plans').select('*').eq('year', year);
+  const planMap = {};
+  (plans || []).forEach(p => { planMap[p.member_id] = p; });
+
+  const { data: yearSched } = await sbClient.from('annual_roster').select('duty_date, member_id, is_holiday').gte('duty_date', `${year}-01-01`).lt('duty_date', `${year}-${String(month).padStart(2,'0')}-01`);
+  const yearCount = {};
+  (yearSched || []).forEach(s => { yearCount[s.member_id] = (yearCount[s.member_id] || 0) + 1; });
+
+  const twiceMembers = new Set();
+  const zeroMembers = new Set();
+  const holidayMembers = new Set();
+  members.forEach(m => {
+    const p = planMap[m.id];
+    if (p && (p.monthly_twice_months || []).includes(monthNum)) twiceMembers.add(m.id);
+    if (p && (p.monthly_zero_months || []).includes(monthNum)) zeroMembers.add(m.id);
+    if (p && (p.holiday_months || []).map(Number).includes(monthNum)) holidayMembers.add(m.id);
+  });
+
+  // 月0回の人は日祝設定があっても対象外とする
+  const holidayMemberList = members.filter(m => holidayMembers.has(m.id) && !zeroMembers.has(m.id));
+  if (!holidayMemberList.length) {
+    showMsg('gen-msg', 'この月は「日祝」設定の人がいません', 'error');
+    return;
+  }
+
+  // 「月の予定回数（1回／2回）」を基準に、日祝の人それぞれの当月上限回数を求める
+  function maxMonthlyOf(m) { return twiceMembers.has(m.id) ? 2 : 1; }
+
+  const monthCount = {};
+
+  // hard 制約（支障日／前回当番から8日間）はどの段階でも絶対に緩めない
+  // （「2回の人だけ先に割り当てる」と同じ考え方）。月の上限回数・年間目標回数は、
+  // 日祝の人の中で候補がどうしても見つからない場合にのみ段階的に緩める。
+  function getCandidates(dateStr, opts) {
+    return holidayMemberList.map(m => {
+      if ((unavailMap[dateStr] || new Set()).has(m.id)) return null; // hard: 支障日
+
+      const lastDate = lastAssigned[m.id];
+      if (lastDate) {
+        const diff = (new Date(dateStr) - new Date(lastDate)) / 86400000;
+        if (diff < 8) return null; // hard: 8日間隔
+      }
+
+      if (!opts.ignoreMonthlyCap) {
+        if ((monthCount[m.id] || 0) >= maxMonthlyOf(m)) return null;
+      }
+
+      if (!opts.ignoreYearTarget) {
+        const p = planMap[m.id];
+        const yearTgt = p ? (p.target_count || 12) : 12;
+        if ((yearCount[m.id] || 0) >= yearTgt) return null;
+      }
+
+      return m;
+    }).filter(Boolean);
+  }
+
+  function sortFair(list) {
+    list.sort((a, b) => {
+      const cntA = monthCount[a.id] || 0;
+      const cntB = monthCount[b.id] || 0;
+      if (cntA !== cntB) return cntA - cntB;
+
+      const dateA = lastAssigned[a.id] ? new Date(lastAssigned[a.id]) : new Date(2000, 0, 1);
+      const dateB = lastAssigned[b.id] ? new Date(lastAssigned[b.id]) : new Date(2000, 0, 1);
+      return dateA - dateB;
+    });
+    return list;
+  }
+
+  // 候補がどうしても見つからない場合は、月の上限回数→年間目標回数の順にのみ緩め、
+  // それでも見つからなければその日は割り当てず「未割当」のままにする
+  // （後で「当番表を作成」を押した際に、他のメンバーで埋められる）。
+  const RELAX_TIERS = [
+    {},
+    { ignoreYearTarget: true },
+    { ignoreYearTarget: true, ignoreMonthlyCap: true }
+  ];
+
+  function pick(dateStr) {
+    for (const opts of RELAX_TIERS) {
+      const cands = sortFair(getCandidates(dateStr, opts));
+      if (cands.length > 0) return cands[0];
+    }
+    return null;
+  }
+
+  const result = [];
+  for (const sd of serviceDays) {
+    const dateStr = sd.dateStr;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = !!holidays[dateStr];
+    const isSpecialDay = (dow === 0 || isHol);
+
+    // 既にロック済み（カレンダー保存済みロック or 前回プレビューのロック）の日はそのまま維持する
+    const existingSched = schedules[dateStr];
+    const dbLockedMemberId = (existingSched && existingSched.locked && existingSched.member_id) ? existingSched.member_id : null;
+    const previewLockedMemberId = prevPreviewLocked[dateStr] || null;
+    const lockedMemberId = dbLockedMemberId || previewLockedMemberId;
+    if (lockedMemberId) {
+      const lockedMember = members.find(m => m.id === lockedMemberId) || null;
+      result.push({ date: dateStr, dow, isHol, member: lockedMember, member_id: lockedMemberId, locked: true });
+      if (holidayMembers.has(lockedMemberId)) {
+        lastAssigned[lockedMemberId] = dateStr;
+        monthCount[lockedMemberId] = (monthCount[lockedMemberId] || 0) + 1;
+      }
+      continue;
+    }
+
+    // 日曜・祝日以外（平日）の枠には触れず、未割当のまま残す
+    let chosen = null;
+    if (isSpecialDay) {
+      const anyRemaining = holidayMemberList.some(m => (monthCount[m.id] || 0) < maxMonthlyOf(m));
+      chosen = anyRemaining ? pick(dateStr) : null;
+    }
+
+    result.push({
+      date: dateStr,
+      dow,
+      isHol,
+      member: chosen,
+      member_id: chosen ? chosen.id : null,
+      locked: !!chosen
+    });
+
+    if (chosen) {
+      lastAssigned[chosen.id] = dateStr;
+      monthCount[chosen.id] = (monthCount[chosen.id] || 0) + 1;
+    }
+  }
+
+  generatedSchedule = result;
+  renderGenPreview();
+
+  const specialDayCount = serviceDays.filter(sd => {
+    const dow = new Date(sd.dateStr + 'T00:00:00').getDay();
+    return dow === 0 || !!holidays[sd.dateStr];
+  }).length;
+  const filledSpecial = result.filter(r => (r.dow === 0 || r.isHol) && r.member_id).length;
+
+  if (specialDayCount === 0) {
+    showMsg('gen-msg', 'この月には日曜・祝日がありません', 'info');
+  } else if (filledSpecial < specialDayCount) {
+    showMsg('gen-msg', `日祝当番を ${filledSpecial}/${specialDayCount} 日 割り当てました（支障日等の都合で一部割り当てできませんでした）。続けて「当番表を作成」を押すと残りの日を自動で埋められます。`, 'error');
+  } else {
+    showMsg('gen-msg', `日祝（${specialDayCount}日分）の当番をすべて優先割り当てしました。続けて「当番表を作成」を押すと残りの日を自動で埋められます。`, 'success');
+  }
+}
+
+async function generateSchedule() {
+  const monthStr = document.getElementById('gen-month').value;
+  if (!monthStr) { showMsg('gen-msg', '対象月を選択してください', 'error'); return; }
+  if (!members.length) { showMsg('gen-msg', 'メンバーが登録されていません', 'error'); return; }
+
+  showMsg('gen-msg', '<span class="spinner"></span> 生成中...', 'info');
+
+  const [year, month] = monthStr.split('-').map(Number);
+  const serviceDays = getServiceMonthDays(year, month);
+  const daysInMonth = serviceDays.length;
+  const monthNum = month;
+  const rangeStart = serviceDays[0].dateStr;
+  const rangeEnd = serviceDays[serviceDays.length - 1].dateStr;
+
+  // 再作成（作り直し）の場合に備え、直前のプレビューでロックされていた行を日付ごとに保持しておく
+  // （保存前の一時的なロックは画面上の状態でしかないため、作成し直すとリセットされてしまう）
+  const prevPreviewLocked = {};
+  generatedSchedule.forEach(r => { if (r.locked && r.member_id) prevPreviewLocked[r.date] = r.member_id; });
+
+  const { data: unavailData } = await sbClient.from('unavailable_dates').select('member_id, blocked_date').gte('blocked_date', rangeStart).lte('blocked_date', rangeEnd);
+  const unavailMap = {};
+  (unavailData || []).forEach(u => {
+    if (!unavailMap[u.blocked_date]) unavailMap[u.blocked_date] = new Set();
+    unavailMap[u.blocked_date].add(u.member_id);
+  });
+
+  const prevDate = new Date(year, month - 2, 1);
+  const { data: prevSched } = await sbClient.from('annual_roster').select('duty_date, member_id').gte('duty_date', prevDate.toISOString().slice(0,10)).lt('duty_date', `${year}-${String(month).padStart(2,'0')}-01`);
+  const lastAssigned = {};
+  (prevSched || []).forEach(s => {
+    if (!lastAssigned[s.member_id] || s.duty_date > lastAssigned[s.member_id]) { lastAssigned[s.member_id] = s.duty_date; }
+  });
+
+  const { data: plans } = await sbClient.from('annual_plans').select('*').eq('year', year);
+  const planMap = {};
+  (plans || []).forEach(p => { planMap[p.member_id] = p; });
+
+  const { data: yearSched } = await sbClient.from('annual_roster').select('duty_date, member_id, is_holiday').gte('duty_date', `${year}-01-01`).lt('duty_date', `${year}-${String(month).padStart(2,'0')}-01`);
+  const yearCount = {}; 
+  (yearSched || []).forEach(s => { yearCount[s.member_id] = (yearCount[s.member_id] || 0) + 1; });
+
+  const twiceMembers = new Set();
+  const zeroMembers = new Set();
+  const holidayMembers = new Set();
+
+  members.forEach(m => {
+    const p = planMap[m.id];
+    if (p && (p.monthly_twice_months || []).includes(monthNum)) twiceMembers.add(m.id);
+    if (p && (p.monthly_zero_months || []).includes(monthNum)) zeroMembers.add(m.id);
+    if (p && (p.holiday_months || []).map(Number).includes(monthNum)) holidayMembers.add(m.id);
+  });
+
+  const result = [];
+  const monthCount = {};
+
+  // 「月の予定回数（0回／1回／2回）」を基準に、各人の当月の上限回数を求める
+  function maxMonthlyOf(m) { return twiceMembers.has(m.id) ? 2 : 1; }
+
+  // hard 制約（どの段階でも絶対に緩めない）：
+  //   ・支障日には割り当てない
+  //   ・月の予定回数が「0回」の人はその月は対象外
+  // それ以外（前回当番からの間隔／月の上限回数／年間目標回数／日祝の可否）は、
+  // 候補者がどうしても見つからない場合にのみ、下の tiers の順で段階的に緩める。
+  function getCandidatesForTier(dateStr, isSpecialDay, opts) {
+    return members.map(m => {
+      if (zeroMembers.has(m.id)) return null;                      // hard: 月0回
+      if ((unavailMap[dateStr] || new Set()).has(m.id)) return null; // hard: 支障日
+
+      if (!opts.ignoreInterval) {
+        const lastDate = lastAssigned[m.id];
+        if (lastDate) {
+          const diff = (new Date(dateStr) - new Date(lastDate)) / 86400000;
+          if (diff < opts.minGap) return null;
+        }
+      }
+
+      if (!opts.ignoreMonthlyCap) {
+        if ((monthCount[m.id] || 0) >= maxMonthlyOf(m)) return null;
+      }
+
+      if (!opts.ignoreYearTarget) {
+        const p = planMap[m.id];
+        const yearTgt = p ? (p.target_count || 12) : 12;
+        if ((yearCount[m.id] || 0) >= yearTgt) return null;
+      }
+
+      if (!opts.ignoreHolidayMatch) {
+        if (isSpecialDay) {
+          if (!holidayMembers.has(m.id)) return null;
+        } else {
+          if (holidayMembers.has(m.id) && !twiceMembers.has(m.id)) return null;
+        }
+      }
+
+      return m;
+    }).filter(Boolean);
+  }
+
+  // 公平に割り当てるための並び替え：
+  //   1. 当番回数が2回の人を先に割り当てる（2回の人の枠を優先的に埋める）
+  //   2. 同じグループ内では、当月の当番回数が少ない人を優先（1回も当たらない人が出ないようにする）
+  //   3. 前回の当番日から日数が空いている人を優先（連続当番を防ぐ）
+  function sortCandidatesFair(list) {
+    list.sort((a, b) => {
+      const twiceA = twiceMembers.has(a.id) ? 0 : 1;
+      const twiceB = twiceMembers.has(b.id) ? 0 : 1;
+      if (twiceA !== twiceB) return twiceA - twiceB;
+
+      const cntA = monthCount[a.id] || 0;
+      const cntB = monthCount[b.id] || 0;
+      if (cntA !== cntB) return cntA - cntB;
+
+      const dateA = lastAssigned[a.id] ? new Date(lastAssigned[a.id]) : new Date(2000, 0, 1);
+      const dateB = lastAssigned[b.id] ? new Date(lastAssigned[b.id]) : new Date(2000, 0, 1);
+      return dateA - dateB;
+    });
+    return list;
+  }
+
+  // 候補者が見つからない場合に、制約を段階的に緩めながら選び直す。
+  // 「月の予定回数の上限（monthlyCap）」は最後の最終手段としてのみ緩め、
+  // その場合でも常に「当月回数が最少の人」を優先するため、
+  // 同じ人が3回選ばれたり、特定の人だけ0回になる事態を避けやすくしている。
+  const RELAX_TIERS = [
+    { minGap: 8 },
+    { minGap: 5 },
+    { minGap: 2 },
+    { ignoreInterval: true },
+    { ignoreInterval: true, ignoreHolidayMatch: true },
+    { ignoreInterval: true, ignoreHolidayMatch: true, ignoreYearTarget: true },
+    { ignoreInterval: true, ignoreHolidayMatch: true, ignoreYearTarget: true, ignoreMonthlyCap: true }
+  ];
+
+  function pickCandidate(dateStr, isSpecialDay) {
+    for (const opts of RELAX_TIERS) {
+      const cands = sortCandidatesFair(getCandidatesForTier(dateStr, isSpecialDay, opts));
+      if (cands.length > 0) return cands[0];
+    }
+    return null;
+  }
+
+  for (const sd of serviceDays) {
+    const dateStr = sd.dateStr;
+    const d = sd.d;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = !!holidays[dateStr];
+    const isSpecialDay = (dow === 0 || isHol);
+
+    // ロック済みの日は自動生成の対象外とし、既に決まっている当番者をそのまま採用する
+    // （①カレンダーで保存済みのロック、②保存前のプレビュー画面で一時的にロックした行、の両方を対象とする）
+    const existingSched = schedules[dateStr];
+    const dbLockedMemberId = (existingSched && existingSched.locked && existingSched.member_id) ? existingSched.member_id : null;
+    const previewLockedMemberId = prevPreviewLocked[dateStr] || null;
+    const lockedMemberId = dbLockedMemberId || previewLockedMemberId;
+    if (lockedMemberId) {
+      const lockedMember = members.find(m => m.id === lockedMemberId) || null;
+
+      result.push({
+        date: dateStr,
+        dow,
+        isHol,
+        member: lockedMember,
+        member_id: lockedMemberId,
+        locked: true
+      });
+
+      lastAssigned[lockedMemberId] = dateStr;
+      monthCount[lockedMemberId] = (monthCount[lockedMemberId] || 0) + 1;
+      yearCount[lockedMemberId] = (yearCount[lockedMemberId] || 0) + 1;
+      continue;
+    }
+
+    // 制約を満たす候補の中から、当月の当番回数が最も少ない人を優先して選ぶ。
+    // どうしても候補が見つからない場合のみ、間隔・日祝・年間目標・月の上限回数の順で
+    // 段階的に条件を緩めて再検索する（月の上限回数は最後の最終手段）。
+    let chosen = pickCandidate(dateStr, isSpecialDay);
+
+    result.push({
+      date: dateStr,
+      dow,
+      isHol,
+      member: chosen,
+      member_id: chosen ? chosen.id : null,
+      locked: false
+    });
+
+    if (chosen) {
+      lastAssigned[chosen.id] = dateStr;
+      monthCount[chosen.id] = (monthCount[chosen.id] || 0) + 1;
+      yearCount[chosen.id] = (yearCount[chosen.id] || 0) + 1;
+    }
+  }
+
+  generatedSchedule = result;
+  renderGenPreview();
+
+  const unassigned = result.filter(r => !r.member).length;
+  if (unassigned > 0) {
+    showMsg('gen-msg', `生成完了。未割当が ${unassigned} 日あります。支障日を減らすか手動調整してください。`, 'error');
+  } else {
+    showMsg('gen-msg', `指定月の条件を満たす最適な当番表の自動作成に成功しました！`, 'success');
+  }
+}
+
+// プレビュー表（当番表作成ページ）を generatedSchedule の内容で描画する。
+// generateSchedule() と assignTwiceMembersFirst() の両方から共通で呼び出す。
+function renderGenPreview() {
+  const result = generatedSchedule;
+  const body = document.getElementById('gen-preview-body');
+  body.innerHTML = result.map((r, i) => `
+    <tr>
+      <td>${r.date}</td>
+      <td style="color:${r.dow===0||r.isHol?'#e89090':r.dow===6?'var(--info)':'var(--text)'}">${DOW_JP[r.dow]}${r.isHol?' 祝':''}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px">
+          <select data-idx="${i}" onchange="updatePreviewMember(this)" ${r.locked ? 'disabled' : ''} style="font-size:13px;padding:4px 6px">
+            <option value="">未割当</option>
+            ${members.map(m => `<option value="${m.id}" ${r.member_id == m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+          </select>
+          <button type="button" class="gen-lock-btn ${r.locked ? 'locked' : ''}" title="${r.locked ? 'ロック中（クリックで解除）' : 'クリックでこの日の当番をロック（作成ボタンを押しても変更されなくなります）'}" onclick="togglePreviewLock(${i})">${r.locked ? '🔒' : '🔓'}</button>
+        </div>
+      </td>
+      <td>${r.dow===0||r.isHol ? '<span class="badge badge-gold">日祝当番</span>' : '<span class="badge badge-green">平日当番</span>'}</td>
+    </tr>
+  `).join('');
+  document.getElementById('gen-preview').style.display = 'block';
+  document.getElementById('btn-save-gen').style.display = 'inline-block';
+}
+
+function togglePreviewLock(idx) {
+  const r = generatedSchedule[idx];
+  if (!r) return;
+  if (!r.locked && !r.member_id) { showMsg('gen-msg', '当番者が未割当の日はロックできません', 'error'); return; }
+  r.locked = !r.locked;
+  const body = document.getElementById('gen-preview-body');
+  const row = body.children[idx];
+  if (row) {
+    const select = row.querySelector('select');
+    const btn = row.querySelector('.gen-lock-btn');
+    select.disabled = r.locked;
+    btn.classList.toggle('locked', r.locked);
+    btn.textContent = r.locked ? '🔒' : '🔓';
+    btn.title = r.locked ? 'ロック中（クリックで解除）' : 'クリックでこの日の当番をロック（作成ボタンを押しても変更されなくなります）';
+  }
+}
+
+function updatePreviewMember(selectEl) {
+  // 手入力での変更は当番間隔・日祝当番・月2回などのルールチェックを行わず、そのまま反映する
+  const idx = Number(selectEl.dataset.idx);
+  const newId = selectEl.value ? Number(selectEl.value) : null;
+  const r = generatedSchedule[idx];
+  if (!r || r.locked) return;
+  r.member_id = newId;
+  r.member = newId ? members.find(m => m.id === newId) : null;
+}
+
+async function saveGeneratedSchedule() {
+  if (!generatedSchedule.length) return;
+  const rows = generatedSchedule.map(r => ({
+    duty_date: r.date,
+    member_id: r.member_id,
+    is_holiday: (r.dow === 0 || r.isHol),
+    locked: !!(r.locked && r.member_id)
+  }));
+  const { error } = await sbClient.from('annual_roster').upsert(rows, { onConflict: 'duty_date' });
+  if (error) { showMsg('gen-msg', error.message, 'error'); return; }
+  showMsg('gen-msg', '当番表をカレンダーに保存しました ✓', 'success');
+
+  // 保存した対象月を、次にカレンダーページへ移動した時にそのまま表示できるよう反映しておく
+  const savedMonthStr = document.getElementById('gen-month').value;
+  if (savedMonthStr) {
+    const [gy, gm] = savedMonthStr.split('-').map(Number);
+    calYear = gy;
+    calMonth = gm - 1;
+  }
+
+  await loadSchedules();
+  renderCalendar();
+}
+
+async function resetMonthSchedule() {
+  const monthStr = document.getElementById('gen-month').value;
+  if (!monthStr) { showMsg('gen-msg', 'リセット対象の月を選択してください', 'error'); return; }
+  
+  const [year, month] = monthStr.split('-').map(Number);
+  const serviceDays = getServiceMonthDays(year, month);
+  const startDate = serviceDays[0].dateStr;
+  const endDate = serviceDays[serviceDays.length - 1].dateStr;
+
+  if (!confirm(`${year}年${month}月${month === 12 ? '（〜翌年1/4）' : ''}の割り当て済みの当番表を完全にリセット（白紙化）しますか？`)) return;
+
+  showMsg('gen-msg', '当番データをリセット中...', 'info');
+
+  const { error } = await sbClient
+    .from('annual_roster')
+    .delete()
+    .gte('duty_date', startDate)
+    .lte('duty_date', endDate);
+
+  if (error) {
+    showMsg('gen-msg', `リセットエラー: ${error.message}`, 'error');
+    return;
+  }
+
+  showMsg('gen-msg', `${year}年${month}月の当番表をリセットしました。これで新しく支障日を登録し直せます。`, 'success');
+  
+  generatedSchedule = [];
+  document.getElementById('gen-preview').style.display = 'none';
+  document.getElementById('btn-save-gen').style.display = 'none';
+  
+  await loadSchedules();
+  renderCalendar();
+}
+
+// =============================================
+// Calendar Display & Month Switchers
+// =============================================
+function renderCalendar() {
+  const month = calMonth + 1;
+  document.getElementById('cal-title').textContent = month === 12
+    ? `${calYear}年 12月（〜翌年1/4）`
+    : `${calYear}年 ${month}月`;
+  const scaleHintEl = document.getElementById('print-scale-hint');
+  if (scaleHintEl) {
+    const smallMonths = [2, 4, 6, 9, 11];
+    const bigMonths = [1, 3, 5, 7, 8, 10];
+    if (month === 12) {
+      scaleHintEl.textContent = '印刷設定(用紙B5、余白なし、倍率カスタム92％)';
+    } else if (smallMonths.includes(month)) {
+      scaleHintEl.textContent = '印刷設定(用紙B5、余白なし、倍率カスタム119％)';
+    } else if (bigMonths.includes(month)) {
+      scaleHintEl.textContent = '印刷設定(用紙B5、余白なし、倍率カスタム113％)';
+    } else {
+      scaleHintEl.textContent = '';
+    }
+  }
+  const first = new Date(calYear, calMonth, 1);
+  const startDow = first.getDay();
+  const today = new Date().toISOString().slice(0,10);
+  const serviceDays = getServiceMonthDays(calYear, month);
+
+  const body = document.getElementById('cal-body');
+  let html = '';
+  for (let i = 0; i < startDow; i++) html += '<div class="cal-empty"></div>';
+
+  serviceDays.forEach(sd => {
+    const dateStr = sd.dateStr;
+    const d = sd.d;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = !!holidays[dateStr];
+    const sched = schedules[dateStr];
+    let cls = 'cal-day';
+    if (dateStr === today) cls += ' today';
+    if (dow === 0 || isHol) cls += ' sunday holiday';
+    else if (dow === 6) cls += ' saturday';
+
+    const holName = holidays[dateStr] ? `<span class="cal-holiday-name" title="${holidays[dateStr]}">${holidays[dateStr]}</span>` : '';
+    const dayLabel = sd.m === month ? `${d}` : `${sd.m}/${d}`;
+    
+    let memberHtml = '';
+    if (sched?.member_id) {
+      const mInfo = allMembersById[sched.member_id];
+      if (mInfo) {
+        const boxClass = (dow === 0 || isHol) ? 'cal-member-box holiday-duty' : 'cal-member-box';
+        const isLocked = !!sched.locked;
+        const lockTitle = isLocked ? 'ロック中（クリックで解除）' : 'クリックでこの日の当番をロック（自動作成で変更されなくなります）';
+
+        memberHtml = `
+          <div class="${boxClass}">
+            <div class="cal-member-name-row">
+              <span class="cal-member-name">${mInfo.name}</span>
+              <button type="button" class="cal-lock-btn ${isLocked ? 'locked' : ''}" title="${lockTitle}" onclick="toggleDutyLock('${dateStr}', event)">${isLocked ? '🔒' : '🔓'}</button>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    html += `<div class="${cls}" onclick="openDayModal('${dateStr}')">
+      <div class="cal-date-row"><span class="cal-date">${dayLabel}</span>${holName}</div>
+      <div class="cal-day-body">${memberHtml}</div>
+    </div>`;
+  });
+  body.innerHTML = html;
+}
+
+async function prevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } await loadSchedules().catch(() => {}); renderCalendar(); }
+async function nextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } await loadSchedules().catch(() => {}); renderCalendar(); }
+async function goToCurrentMonth() { const now = new Date(); calYear = now.getFullYear(); calMonth = now.getMonth(); await loadSchedules().catch(() => {}); renderCalendar(); }
+
+function openDayModal(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  document.getElementById('day-modal-title').textContent = `${dateStr} (${DOW_JP[d.getDay()]})${holidays[dateStr]?' '+holidays[dateStr]:''}`;
+  document.getElementById('day-modal-date').value = dateStr;
+  const sched = schedules[dateStr];
+  document.getElementById('day-modal-member').value = sched?.member_id || '';
+  document.getElementById('day-modal-note').value = sched?.notes || '';
+  document.getElementById('day-modal-locked').checked = !!sched?.locked;
+  document.getElementById('day-modal-msg').innerHTML = '';
+  updateDayModalMemberInfo();
+  document.getElementById('day-modal').classList.add('open');
+}
+function closeDayModal() { document.getElementById('day-modal').classList.remove('open'); }
+
+// 当番設定モーダル：選択中の当番者の部署・連絡先を表示する
+// （カレンダー上のマスには氏名のみ表示し、部署・連絡先はこのモーダルでのみ確認できるようにしている）
+function updateDayModalMemberInfo() {
+  const infoEl = document.getElementById('day-modal-member-info');
+  if (!infoEl) return;
+  const mid = document.getElementById('day-modal-member').value;
+  const mInfo = mid ? allMembersById[mid] : null;
+  if (!mInfo) { infoEl.innerHTML = ''; return; }
+  const deptStr = mInfo.department ? mInfo.department : '—';
+  const phoneStr = mInfo.phone || mInfo.phone_number || mInfo.tel || '—';
+  infoEl.innerHTML = `🏢 ${deptStr}　📞 ${phoneStr}`;
+}
+
+// カレンダーの氏名横のロックボタン：当番が決まっている日をロック/解除する。
+// ロックされた日は「当番表を作成」を押しても自動生成の対象から外れ、割当が変わらない。
+async function toggleDutyLock(dateStr, event) {
+  if (event) { event.stopPropagation(); }
+  const sched = schedules[dateStr];
+  if (!sched || !sched.member_id) return;
+  const newLocked = !sched.locked;
+  const { error } = await sbClient.from('annual_roster').update({ locked: newLocked }).eq('duty_date', dateStr);
+  if (error) {
+    alert('ロックの切り替えに失敗しました: ' + error.message + '\n（annual_rosterテーブルに「locked」列(boolean, デフォルトfalse)が必要です）');
+    return;
+  }
+  await loadSchedules();
+  renderCalendar();
+}
+
+async function saveDaySchedule() {
+  const date = document.getElementById('day-modal-date').value;
+  const member_id = document.getElementById('day-modal-member').value || null;
+  const note = document.getElementById('day-modal-note').value.trim() || null;
+  const locked = document.getElementById('day-modal-locked').checked;
+  const d = new Date(date + 'T00:00:00');
+  const isHol = (d.getDay() === 0 || !!holidays[date]);
+  const { error } = await sbClient.from('annual_roster').upsert({ duty_date: date, member_id, notes: note, is_holiday: isHol, locked: member_id ? locked : false }, { onConflict: 'duty_date' });
+  if (error) { showMsg('day-modal-msg', error.message, 'error'); return; }
+  await loadSchedules();
+  renderCalendar();
+  closeDayModal();
+}
+
+function exportCSV() {
+  // ヘッダーの定義
+  const rows = [['日付', 'ID', '当番者', '部署', '連絡先', '備考']];
+  const month = calMonth + 1;
+  const serviceDays = getServiceMonthDays(calYear, month);
+  
+  serviceDays.forEach(sd => {
+    const dateStr = sd.dateStr;
+    const sched = schedules[dateStr];
+    const mInfo = sched?.member_id ? allMembersById[sched.member_id] : null;
+    
+    // 祝日内容を備考に統合
+    let note = sched?.notes || '';
+    if (holidays[dateStr]) {
+      note = note ? `${holidays[dateStr]} / ${note}` : holidays[dateStr];
+    }
+    
+    // 日付を「4月1日」形式に変換（12月特例の翌年1/1〜1/4は「1月1日」のように表示）
+    const displayDate = `${sd.m}月${sd.d}日`;
+    
+    rows.push([
+      displayDate,
+      mInfo ? (mInfo.member_no || '') : '', // ID列
+      mInfo ? mInfo.name : '',              // 当番者列
+      mInfo ? (mInfo.department || '') : '',
+      mInfo ? (mInfo.phone || mInfo.phone_number || mInfo.tel || '') : '',
+      note
+    ]);
+  });
+  
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `当番表_${calYear}${String(month).padStart(2, '0')}.csv`;
+  a.click();
+}
+/* ===================== 印刷機能 ===================== */
+const PRINT_ROOT_STYLE = `
+  :root {
+    --bg:#f9f7f4;
+    --surface:#ffffff;
+    --border:#e4e0d8;
+    --border-strong:#c8c2b4;
+    --text:#1a1814;
+    --text-muted:#6b6560;
+    --text-hint:#9e9890;
+    --accent:#4a5e3a;
+    --accent-light:#e8eedf;
+    --accent-dark:#2e3d22;
+    --gold:#8b6914;
+    --gold-light:#f5edd6;
+    --danger:#e89090;
+    --danger-light:#fceaea;
+    --info:#1a4a7a;
+    --info-light:#e6eef7;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; color: var(--text); margin: 0; padding: 20px; }
+  h1 { font-size: 18px; margin: 0 0 4px; text-align: center; }
+  /* 「勤務者」のフォントをタイトルと同じ体系に調整 */
+  .print-sub { 
+    text-align: center; 
+    font-size: 14px; 
+    color: var(--text); 
+    font-weight: 500; 
+    margin-bottom: 18px; 
+  }
+  .print-date { text-align:right; font-size:10px; color:#9e9890; margin-bottom:8px; }
+  table { border-collapse:collapse; width: 100%; table-layout: fixed; }
+  th, td { border:1px solid #c8c2b4; padding:6px 10px; font-size:12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @media print {
+    @page { size: B5 portrait; margin: 0; }
+  }
+`;
+
+function openPrintWindow(title, bodyHtml, extraStyle) {
+  const w = window.open('', '_blank', 'width=900,height=1000');
+  if (!w) { alert('ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。'); return; }
+  const doc = `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><title>${title}</title>
+<style>${PRINT_ROOT_STYLE}${extraStyle || ''}</style>
+</head><body>
+${bodyHtml}
+<script>
+  window.onload = function () {
+    window.print();
+  };
+<\/script>
+</body></html>`;
+  w.document.open();
+  w.document.write(doc);
+  w.document.close();
+}
+
+// 朝勤め・夕勤め 時刻表（月ごと：前半1〜15日／後半16日〜月末日）
+const CHOTOME_TIMES = {
+  1:  { amFirst: '7:00', pmFirst: '5:00', amSecond: '7:00', pmSecond: '5:15' },
+  2:  { amFirst: '7:00', pmFirst: '5:30', amSecond: '6:45', pmSecond: '5:45' },
+  3:  { amFirst: '6:30', pmFirst: '6:00', amSecond: '6:15', pmSecond: '6:30' },
+  4:  { amFirst: '6:00', pmFirst: '6:30', amSecond: '5:45', pmSecond: '6:45' },
+  5:  { amFirst: '5:30', pmFirst: '7:00', amSecond: '5:15', pmSecond: '7:15' },
+  6:  { amFirst: '5:00', pmFirst: '7:30', amSecond: '5:00', pmSecond: '7:30' },
+  7:  { amFirst: '5:00', pmFirst: '7:30', amSecond: '5:15', pmSecond: '7:30' },
+  8:  { amFirst: '5:30', pmFirst: '7:15', amSecond: '5:30', pmSecond: '7:00' },
+  9:  { amFirst: '5:45', pmFirst: '6:45', amSecond: '6:00', pmSecond: '6:30' },
+  10: { amFirst: '6:00', pmFirst: '6:00', amSecond: '6:15', pmSecond: '5:45' },
+  11: { amFirst: '6:30', pmFirst: '5:30', amSecond: '6:45', pmSecond: '5:15' },
+  12: { amFirst: '7:00', pmFirst: '5:00', amSecond: '7:00', pmSecond: '5:00' },
+};
+
+function printCalendar() {
+  const month = calMonth + 1;
+  const serviceDays = getServiceMonthDays(calYear, month);
+  let rowsFirst = '';
+  let rowsSecond = '';
+  serviceDays.forEach((sd, idx) => {
+    const dateStr = sd.dateStr;
+    const d = sd.d;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = !!holidays[dateStr];
+    const sched = schedules[dateStr];
+    const mInfo = sched?.member_id ? allMembersById[sched.member_id] : null;
+
+    const note = sched?.notes || '';
+
+    const isRed = (dow === 0 || isHol);
+    const dayBg = isRed ? 'background:#f7c99a;' : '';
+    const dayNum = sd.m === month ? `${d}` : `${sd.m}/${d}`;
+    const dowLabel = `${dayNum}日<br><span style="font-size:10px;font-weight:400;">(${DOW_JP[dow]})</span>`;
+
+    const name = mInfo ? mInfo.name : '';
+    const dept = mInfo ? (mInfo.department || '') : '';
+    const phone = mInfo ? (mInfo.phone || mInfo.phone_number || mInfo.tel || '') : '';
+    const subLine = [dept, phone].filter(Boolean).join('　');
+    const subFontSize = subLine.length <= 12 ? 10 : subLine.length <= 16 ? 9 : subLine.length <= 20 ? 8 : subLine.length <= 25 ? 7 : 6;
+    const noteLine = note ? `<div style="font-size:9px;color:#333;margin-top:1px;">📝 ${note}</div>` : '';
+
+    const rowHtml = `<tr>
+      <td style="width:48px;text-align:center;font-size:14px;font-weight:700;border:1px solid #555;padding:2px;white-space:nowrap;${dayBg}">${dowLabel}</td>
+      <td style="border:1px solid #555;padding:2px 8px;">
+        <div style="font-size:15px;font-weight:700;">${name}</div>
+        <div style="font-size:${subFontSize}px;font-weight:700;color:#555;margin-top:1px;white-space:nowrap">${subLine}</div>
+        ${noteLine}
+      </td>
+      <td style="border:1px solid #555;padding:2px;"></td>
+    </tr>`;
+
+    if (idx < 15) rowsFirst += rowHtml; else rowsSecond += rowHtml;
+  });
+
+  const rikkyoYear = calYear - 1837;
+  const title = month === 12
+    ? `立教${rikkyoYear}年12月1日〜立教${rikkyoYear+1}年1月4日 神殿奉仕当番表 (勤務者)`
+    : `立教${rikkyoYear}年${month}月 神殿奉仕当番表 (勤務者)`;
+  const ct = chotomeTimesData[month] || CHOTOME_TIMES[month];
+  const formatChotomeLabel = (amTime, pmTime) => {
+    const amFull = amTime.replace(':', '：');
+    const pmFull = pmTime.replace(':', '：');
+    return `<span style="margin-left:58px;display:inline-block">朝勤${amFull}　　夕勤${pmFull}</span>`;
+  };
+  const subFirst = ct ? formatChotomeLabel(ct.amFirst, ct.pmFirst) : '';
+  const subSecond = ct ? formatChotomeLabel(ct.amSecond, ct.pmSecond) : '';
+
+  const tableStyle = 'width:100%;border-collapse:collapse;table-layout:fixed;';
+
+  const bodyHtml = `
+    <h1>${title}</h1>
+    <div style="margin-top:12px;">
+      <div style="float:left;width:calc(50% - 8px);">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;line-height:1.5">${subFirst}</div>
+        <table style="${tableStyle}">
+          <colgroup><col style="width:48px"><col><col style="width:55px"></colgroup>
+          <tbody>${rowsFirst}</tbody>
+        </table>
+      </div>
+      <div style="float:right;width:calc(50% - 8px);">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;line-height:1.5">${subSecond}</div>
+        <table style="${tableStyle}">
+          <colgroup><col style="width:48px"><col><col style="width:55px"></colgroup>
+          <tbody>${rowsSecond}</tbody>
+        </table>
+      </div>
+      <div style="clear:both"></div>
+    </div>
+  `;
+  openPrintWindow(title, bodyHtml);
+}
+
+// 支障日一覧（一覧表形式）を印刷する（横向き・現在表示中の月の内容をそのまま印刷）
+function printUnavailMatrix() {
+  const monVal = document.getElementById('u-matrix-month')?.value;
+  const headHtml = document.getElementById('unavail-matrix-head')?.innerHTML || '';
+  const bodyRowsHtml = (document.getElementById('unavail-matrix-body')?.innerHTML || '').replace(/\sonclick="[^"]*"/g, '');
+  if (!headHtml || !bodyRowsHtml) { alert('一覧表が読み込まれていません。表示月を選択してから印刷してください。'); return; }
+
+  let title = '登録済み支障日一覧';
+  if (monVal) {
+    const [y, m] = monVal.split('-').map(Number);
+    title = `${y}年${m}月 登録済み支障日一覧`;
+  }
+
+  const legendHtml = `
+    <div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap;font-size:11px">
+      <span><span style="color:var(--accent);font-weight:bold">✓</span> 登録済み支障日</span>
+      <span><span style="background:#fff59d;padding:1px 6px;border-radius:3px;border:1px solid #c8c2b4">黄</span> 当番日決定済み</span>
+      <span><span style="background:#e89090;padding:1px 6px;border-radius:3px;border:1px solid #c8c2b4;color:#fff">塗りつぶし</span> 日祝当番の人</span>
+      <span><span style="background:#fceaea;padding:1px 6px;border-radius:3px;border:1px solid #c8c2b4">日祝</span> 日曜・祝日枠</span>
+      <span><span style="background:#c9c9c9;padding:1px 6px;border-radius:3px;border:1px solid #c8c2b4">灰</span> 前月当番からの中8日期間</span>
+    </div>
+  `;
+
+  const bodyHtml = `
+    <h1>${title}</h1>
+    <table style="table-layout:auto">
+      <thead>${headHtml}</thead>
+      <tbody>${bodyRowsHtml}</tbody>
+    </table>
+    ${legendHtml}
+  `;
+
+  // 日数分の列があり横に長くなるため、印刷時はA4横向きにする
+  const extraStyle = `
+    @media print { @page { size: A4 landscape; margin: 8mm; } }
+    table { table-layout:auto; }
+    th, td { padding:3px 4px; font-size:10px; white-space:nowrap; }
+    th:first-child, td:first-child { text-align:left; white-space:nowrap; }
+  `;
+  openPrintWindow(title, bodyHtml, extraStyle);
+}
+
+async function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(s => { if (s.getAttribute('onclick')?.includes(name)) s.classList.add('active'); });
+  if (name === 'unavailable') { await loadUnavailSummary(); await renderUnavailCalendar(); }
+  if (name === 'unavail-list') { await loadUnavailable(); }
+  if (name === 'mc2') await loadAndRenderMultiCount2();
+  if (name === 'mh2') await loadAndRenderMultiHol2();
+  if (name === 'annual-single2') loadAndRenderAnnualTable2();
+  if (name === 'calendar') { await loadSchedules().catch(() => {}); renderCalendar(); }
+  if (name === 'records') { await renderRecordTable(); }
+  if (name === 'holidays') { populateHolidayYearSelect(); await renderHolidaysTable(); }
+  if (name === 'chotome') { renderChotomeTable(); await loadFestivals(); renderFestivalList(); }
+}
+
+
+function lastDayOfMonth(monStr) {
+  // 'YYYY-MM' -> 'YYYY-MM-DD' (その月の最終日)
+  const [y, m] = monStr.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return monStr + '-' + String(last).padStart(2,'0');
+}
+
+function shiftMonth(inputId, delta) {
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  const base = el.value || new Date().toISOString().slice(0,7);
+  const [y, m] = base.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  const nextVal = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  el.value = nextVal;
+  
+  if (inputId === 'u-summary-month') {
+    document.getElementById('u-matrix-month').value = nextVal;
+    document.getElementById('u-cal-month').value = nextVal;
+  }
+}
+
+function showMsg(id, msg, type) {
+  const el = document.getElementById(id); if (!el) return;
+  el.innerHTML = `<div class="alert alert-${type==='success'?'success':type==='error'?'error':'info'}">${msg}</div>`;
+  if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 3000);
+}
+function isLeapYear(y) { return (y%4===0&&y%100!==0)||y%400===0; }
+
+// =============================================
+// Records Table (過去の記録) - 複数月横並び表示
+// =============================================
+async function ensureAllMembersCache() {
+  if (allMembersLoaded) return;
+  try {
+    const { data, error } = await sbClient.from('members').select('*');
+    if (error) throw error;
+    (data || []).forEach(m => { allMembersById[m.id] = m; });
+    allMembersLoaded = true;
+  } catch(e) { console.warn('[allMembers]', e.message); }
+}
+
+function populateRecordSelects() {
+  const yearSel = document.getElementById('rec-year');
+  const monthSel = document.getElementById('rec-start-month');
+  if (!yearSel || !monthSel) return;
+  const curYear = new Date().getFullYear();
+  const curMonth = new Date().getMonth() + 1;
+
+  // デフォルトの開始年月：今月から6ヶ月遡った月（例：今月が7月なら1月〜7月の7ヶ月分になるように）
+  let defaultMonth = curMonth - 6;
+  let defaultYear = curYear;
+  if (defaultMonth <= 0) { defaultMonth += 12; defaultYear -= 1; }
+
+  if (!yearSel.options.length) {
+    let yOpts = '';
+    for (let y = curYear - 5; y <= curYear + 5; y++) {
+      yOpts += `<option value="${y}" ${y === defaultYear ? 'selected' : ''}>${y}年</option>`;
+    }
+    yearSel.innerHTML = yOpts;
+  }
+  if (!monthSel.options.length) {
+    let mOpts = '';
+    for (let m = 1; m <= 12; m++) {
+      mOpts += `<option value="${m}" ${m === defaultMonth ? 'selected' : ''}>${m}月</option>`;
+    }
+    monthSel.innerHTML = mOpts;
+  }
+}
+
+// 開始年月から count ヶ月分の {year, month} 配列を返す
+function buildMonthList(startYear, startMonth, count) {
+  const list = [];
+  let y = startYear, m = startMonth;
+  for (let i = 0; i < count; i++) {
+    list.push({ year: y, month: m });
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return list;
+}
+
+function getRecordSelection() {
+  const yearSel = document.getElementById('rec-year');
+  const monthSel = document.getElementById('rec-start-month');
+  const countSel = document.getElementById('rec-count');
+  if (!yearSel?.value || !monthSel?.value || !countSel?.value) return null;
+  return {
+    year: parseInt(yearSel.value),
+    month: parseInt(monthSel.value),
+    count: parseInt(countSel.value)
+  };
+}
+
+async function fetchRosterRange(startYear, startMonth, count) {
+  const monthList = buildMonthList(startYear, startMonth, count);
+  const first = monthList[0];
+  const lastM = monthList[monthList.length - 1];
+  const startDate = `${first.year}-${String(first.month).padStart(2,'0')}-01`;
+  const endDate = lastDayOfMonth(`${lastM.year}-${String(lastM.month).padStart(2,'0')}`);
+  const { data, error } = await sbClient.from('annual_roster').select('*').gte('duty_date', startDate).lte('duty_date', endDate);
+  if (error) throw error;
+  const map = {};
+  (data || []).forEach(r => { map[r.duty_date] = r; });
+  return { monthList, map };
+}
+
+function buildMonthTableHtml(year, month, map) {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let rows = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = !!holidays[dateStr];
+    const rec = map[dateStr];
+    const mInfo = rec?.member_id ? allMembersById[rec.member_id] : null;
+    const name = mInfo ? mInfo.name : '';
+    const isRed = (dow === 0 || isHol);
+    const rowStyle = isRed ? 'style="background:var(--danger-light)"' : '';
+    const dowBadgeStyle = isRed
+      ? 'background:var(--danger);color:#fff'
+      : (dow === 6 ? 'background:var(--info-light);color:var(--info)' : 'color:var(--text)');
+
+    rows += `<tr ${rowStyle}>
+      <td style="text-align:center;white-space:nowrap;padding:0 6px"><span style="display:inline-block;min-width:46px;border-radius:4px;padding:0 4px;font-size:11px;font-weight:500;${dowBadgeStyle}">${d}日(${DOW_JP[dow]})</span></td>
+      <td style="padding:0 6px;white-space:nowrap;font-size:12px">${name || '<span style="color:var(--text-hint)">—</span>'}</td>
+    </tr>`;
+  }
+
+  return `
+    <div style="flex:0 0 auto;min-width:150px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+      <div style="background:var(--accent-light);color:var(--accent-dark);text-align:center;font-size:13px;font-weight:600;padding:3px 4px;border-bottom:1px solid var(--border)">${year}年 ${month}月</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:center;font-size:10px;padding:1px 2px;border-bottom:1px solid var(--border);background:var(--bg)">日</th>
+            <th style="text-align:left;font-size:10px;padding:1px 2px;border-bottom:1px solid var(--border);background:var(--bg)">名前</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function renderRecordTable() {
+  const sel = getRecordSelection();
+  if (!sel) return;
+  const { year, month, count } = sel;
+
+  document.getElementById('rec-title').textContent = `${year}年${month}月 から ${count}ヶ月分の当番記録`;
+  const wrap = document.getElementById('rec-table-wrap');
+  wrap.innerHTML = '<div style="padding:16px;color:var(--text-hint)">読み込み中...</div>';
+
+  let monthList, map;
+  try {
+    const res = await fetchRosterRange(year, month, count);
+    monthList = res.monthList;
+    map = res.map;
+  } catch(e) {
+    wrap.innerHTML = `<div style="padding:16px;color:var(--danger)">読み込み失敗: ${e.message}</div>`;
+    return;
+  }
+
+  await ensureAllMembersCache();
+
+  const html = monthList.map(mo => buildMonthTableHtml(mo.year, mo.month, map)).join('');
+  wrap.innerHTML = html;
+}
+
+// 割当確認（表形式）を印刷する（現在表示中の月範囲をそのまま印刷）
+function printRecordTable() {
+  const title = document.getElementById('rec-title')?.textContent || '割当確認';
+  const wrapHtml = document.getElementById('rec-table-wrap')?.innerHTML || '';
+  if (!wrapHtml) { alert('表がまだ表示されていません。先に「表示」を押してください。'); return; }
+
+  const bodyHtml = `
+    <h1>${title}</h1>
+    <div class="rec-print-wrap">${wrapHtml}</div>
+  `;
+  const extraStyle = `
+    @media print { @page { size: A4 landscape; margin: 8mm; } }
+    .rec-print-wrap { display:flex; flex-wrap:wrap; gap:10px; }
+    .rec-print-wrap > div { break-inside: avoid; }
+    table { table-layout:auto; width:auto; }
+  `;
+  openPrintWindow(title, bodyHtml, extraStyle);
+}
+
+async function exportRecordCSV() {
+  const sel = getRecordSelection();
+  if (!sel) return;
+  const { year, month, count } = sel;
+
+  let monthList, map;
+  try {
+    const res = await fetchRosterRange(year, month, count);
+    monthList = res.monthList;
+    map = res.map;
+  } catch(e) {
+    showMsg('rec-title', '読み込み失敗: ' + e.message, 'error');
+    return;
+  }
+  await ensureAllMembersCache();
+
+  const rows = [['日付', '曜日', '名前']];
+  monthList.forEach(mo => {
+    const daysInMonth = new Date(mo.year, mo.month, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${mo.year}-${String(mo.month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dow = new Date(dateStr + 'T00:00:00').getDay();
+      const rec = map[dateStr];
+      const mInfo = rec?.member_id ? allMembersById[rec.member_id] : null;
+      rows.push([dateStr, DOW_JP[dow], mInfo ? mInfo.name : '']);
+    }
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const first = monthList[0], last = monthList[monthList.length-1];
+  a.download = `記録_${first.year}${String(first.month).padStart(2,'0')}-${last.year}${String(last.month).padStart(2,'0')}.csv`;
+  a.click();
+}
+
+// =============================================
+// Holidays Management (祝日管理)
+// =============================================
+function populateHolidayYearSelect() {
+  const el = document.getElementById('hol-year');
+  if (!el || el.value) return;
+  el.value = new Date().getFullYear();
+}
+
+async function renderHolidaysTable() {
+  const sel = document.getElementById('hol-year');
+  if (!sel || !sel.value) return;
+  const year = sel.value;
+  const tbody = document.getElementById('holidays-body');
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>';
+
+  const entries = Object.entries(holidays)
+    .filter(([date]) => date.startsWith(year + '-'))
+    .sort((a, b) => a[0].localeCompare(b[0]));
+
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-hint)">登録された祝日がありません</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = entries.map(([date, name]) => {
+    const dow = new Date(date + 'T00:00:00').getDay();
+    return `<tr>
+      <td>${date}</td>
+      <td>${DOW_JP[dow]}</td>
+      <td>${name}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteHoliday('${date}')">削除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function addHoliday() {
+  const date = document.getElementById('hol-date').value;
+  const name = document.getElementById('hol-name').value.trim();
+  if (!date || !name) { showMsg('holiday-msg', '日付と名称を入力してください', 'error'); return; }
+  try {
+    const { error } = await sbClient.from('holidays').upsert({ date, name }, { onConflict: 'date' });
+    if (error) throw error;
+  } catch(e) {
+    showMsg('holiday-msg', '登録失敗: ' + e.message, 'error');
+    return;
+  }
+  document.getElementById('hol-date').value = '';
+  document.getElementById('hol-name').value = '';
+  showMsg('holiday-msg', '登録しました', 'success');
+  await loadHolidays();
+  await renderHolidaysTable();
+  renderCalendar();
+}
+
+async function deleteHoliday(date) {
+  if (!confirm(`${date} を祝日から削除しますか？`)) return;
+  try {
+    const { error } = await sbClient.from('holidays').delete().eq('date', date);
+    if (error) throw error;
+  } catch(e) {
+    showMsg('holiday-msg', '削除失敗: ' + e.message, 'error');
+    return;
+  }
+  await loadHolidays();
+  await renderHolidaysTable();
+  renderCalendar();
+}
+
+// n番目の指定曜日（0=日,1=月...）を求める（ハッピーマンデー等の計算用）
+function nthWeekdayOfMonth(year, month, weekday, n) {
+  const first = new Date(year, month - 1, 1);
+  const firstWeekday = first.getDay();
+  let day = 1 + ((weekday - firstWeekday + 7) % 7) + (n - 1) * 7;
+  return day;
+}
+
+// 春分の日・秋分の日を近似計算式で求める（1980〜2099年の範囲で有効な計算式）
+function vernalEquinoxDay(year) {
+  return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+}
+function autumnalEquinoxDay(year) {
+  return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+// 指定年の「基本の祝日」（振替休日を除く）を計算する
+function buildBasicHolidaysForYear(year) {
+  const list = [];
+  const add = (month, day, name) => { list.push({ date: `${year}-${pad2(month)}-${pad2(day)}`, name }); };
+
+  add(1, 1, '元日');
+  add(1, nthWeekdayOfMonth(year, 1, 1, 2), '成人の日');
+  add(2, 11, '建国記念の日');
+  add(2, 23, '天皇誕生日');
+  add(3, vernalEquinoxDay(year), '春分の日');
+  add(4, 29, '昭和の日');
+  add(5, 3, '憲法記念日');
+  add(5, 4, 'みどりの日');
+  add(5, 5, 'こどもの日');
+  add(7, nthWeekdayOfMonth(year, 7, 1, 3), '海の日');
+  add(8, 11, '山の日');
+  add(9, nthWeekdayOfMonth(year, 9, 1, 3), '敬老の日');
+  add(9, autumnalEquinoxDay(year), '秋分の日');
+  add(10, nthWeekdayOfMonth(year, 10, 1, 2), 'スポーツの日');
+  add(11, 3, '文化の日');
+  add(11, 23, '勤労感謝の日');
+
+  return list;
+}
+
+async function seedBasicHolidays() {
+  if (!confirm('2026年〜2050年の基本の祝日を一括登録します。振替休日は含まれません。よろしいですか？')) return;
+  showMsg('seed-holiday-msg', '<span class="spinner"></span> 登録中...', 'info');
+
+  let rows = [];
+  for (let y = 2026; y <= 2050; y++) {
+    rows = rows.concat(buildBasicHolidaysForYear(y));
+  }
+
+  try {
+    const { error } = await sbClient.from('holidays').upsert(rows, { onConflict: 'date' });
+    if (error) throw error;
+  } catch(e) {
+    showMsg('seed-holiday-msg', '登録失敗: ' + e.message, 'error');
+    return;
+  }
+
+  showMsg('seed-holiday-msg', `${rows.length}件の祝日を登録しました（2026〜2050年）`, 'success');
+  await loadHolidays();
+  await renderHolidaysTable();
+  renderCalendar();
+}
+
+// =============================================
+// ログイン（固定パスワード）
+// =============================================
+// 当番表作成者用の固定パスワード。変更したい場合はこの値を書き換える。
+const ACCESS_PASSWORD = '0849';
+
+function checkLoginPassword() {
+  const input = document.getElementById('login-password');
+  const val = input.value;
+  if (val === ACCESS_PASSWORD) {
+    unlockApp();
+  } else {
+    document.getElementById('login-msg').textContent = 'パスワードが違います';
+    input.value = '';
+    input.focus();
+  }
+}
+
+function unlockApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-content').style.display = 'block';
+  startApp();
+}
+
+let appStarted = false;
+function startApp() {
+  if (appStarted) return;
+  appStarted = true;
+  const dows = ['日','月','火','水','木','金','土'];
+  document.getElementById('cal-dow').innerHTML = dows.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  const curStr = new Date().toISOString().slice(0,7);
+  document.getElementById('u-cal-month').value = curStr;
+  populateRecordSelects();
+  restoreSidebarState();
+  initApp();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  // ページを開くたびに必ずパスワード入力を求める（認証状態は保持しない）
+  document.getElementById('login-password').focus();
+});
+</script>
+</body>
+</html>
+<style>
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  select::-ms-expand {
+    display: none;
+  }
+</style>
