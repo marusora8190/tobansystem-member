@@ -107,6 +107,8 @@
   .day-cell.pending-add { background: #fff3b0; border-color: #d4af00; color: var(--text); font-weight: 700; }
   .day-cell.pending-remove { background: #eee; border-color: #bbb; color: #999; text-decoration: line-through; }
   .day-cell.pending-remove::after { content: "取消"; position: absolute; bottom: 2px; font-size: 8px; }
+  .day-cell.next-month-day { background: #f2f0ea; }
+  .day-cell.next-month-day .day-num { font-size: 11px; }
 
   .confirm-banner { border-radius: var(--radius); padding: 8px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; line-height: 1.4; }
   .confirm-banner.ok { background: #e3f2d6; border: 1px solid #7cb342; color: #33691e; }
@@ -180,7 +182,10 @@
 
       <div class="month-nav">
         <button onclick="shiftCalMonth(-1)" aria-label="前の月">◀</button>
-        <div class="month-label" id="month-label"></div>
+        <div>
+          <div class="month-label" id="month-label"></div>
+          <div id="month-sub-note" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:2px"></div>
+        </div>
         <button onclick="shiftCalMonth(1)" aria-label="次の月">▶</button>
       </div>
 
@@ -235,6 +240,31 @@ let pendingRemove = new Set();
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function lastDayOfMonthStr(y, m) { return `${y}-${pad2(m)}-${pad2(new Date(y, m, 0).getDate())}`; }
+
+// =============================================
+// 12月の支障日入力は、当年12月1日〜翌年1月4日までを対象とする（正月奉仕の都合のため）。
+// 1月の画面は通常通り1月1日〜1月31日をそのまま表示する。
+// =============================================
+function getCalendarDayList(year, month) {
+  const days = [];
+  if (month === 12) {
+    const decDays = new Date(year, 12, 0).getDate(); // 31
+    for (let d = 1; d <= decDays; d++) days.push({ y: year, m: 12, d });
+    for (let d = 1; d <= 4; d++) days.push({ y: year + 1, m: 1, d });
+  } else {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) days.push({ y: year, m: month, d });
+  }
+  return days;
+}
+function getMonthLabel(year, month) {
+  if (month === 12) return `${year}年12月`;
+  return `${year}年${month}月`;
+}
+function getMonthSubNote(year, month) {
+  if (month === 12) return `12月1日〜${year + 1}年1月4日分`;
+  return '';
+}
 // ログイン番号の比較用正規化：数字以外（前ゼロを含む記号・空白）を取り除き、
 // 数値としての詰員番号に変換する。これにより「0043」「43」いずれの入力でも
 // 詰員番号43番として同じ人に一致させられる（NaN の場合は null を返す）。
@@ -352,16 +382,18 @@ function doLogout() {
 // =============================================
 // カレンダー表示
 // =============================================
-async function fetchRegisteredDates() {
+async function fetchRegisteredDates(dayList) {
   registeredDates = new Set();
   confirmedDates = new Set();
-  const mon = `${calYear}-${pad2(calMonth)}`;
+  const first = dayList[0], last = dayList[dayList.length - 1];
+  const startStr = `${first.y}-${pad2(first.m)}-${pad2(first.d)}`;
+  const endStr = `${last.y}-${pad2(last.m)}-${pad2(last.d)}`;
   const { data, error } = await sbClient
     .from('unavailable_dates')
     .select('blocked_date, confirmed')
     .eq('member_id', currentMember.id)
-    .gte('blocked_date', mon + '-01')
-    .lte('blocked_date', lastDayOfMonthStr(calYear, calMonth));
+    .gte('blocked_date', startStr)
+    .lte('blocked_date', endStr);
   if (!error) (data || []).forEach(r => {
     registeredDates.add(r.blocked_date);
     if (r.confirmed) confirmedDates.add(r.blocked_date);
@@ -383,28 +415,30 @@ function isMonthLocked(year, month) {
 }
 
 async function renderCalendar() {
-  document.getElementById('month-label').textContent = `${calYear}年${calMonth}月`;
+  const dayList = getCalendarDayList(calYear, calMonth);
+  document.getElementById('month-label').textContent = getMonthLabel(calYear, calMonth);
+  document.getElementById('month-sub-note').textContent = getMonthSubNote(calYear, calMonth);
   const dowRow = document.getElementById('cal-dow-row');
   dowRow.innerHTML = DOW_JP.map((d, i) => `<th style="${i===0?'color:#c0392b':i===6?'color:var(--info)':''}">${d}</th>`).join('');
 
-  await fetchRegisteredDates();
+  await fetchRegisteredDates(dayList);
 
   const locked = isMonthLocked(calYear, calMonth);
-  const firstDay = new Date(calYear, calMonth - 1, 1).getDay();
-  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+  const first = dayList[0];
+  const firstDay = new Date(first.y, first.m - 1, first.d).getDay();
   const todayStr = new Date().toISOString().slice(0, 10);
 
   let html = '<tr>';
   for (let i = 0; i < firstDay; i++) html += '<td class="empty-cell"></td>';
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${calYear}-${pad2(calMonth)}-${pad2(d)}`;
-    const dow = (firstDay + d - 1) % 7;
+  dayList.forEach((day, idx) => {
+    const dateStr = `${day.y}-${pad2(day.m)}-${pad2(day.d)}`;
+    const dow = (firstDay + idx) % 7;
     const isHol = !!holidays[dateStr];
     const isRegistered = registeredDates.has(dateStr);
     const isPendingAdd = pendingAdd.has(dateStr);
     const isPendingRemove = pendingRemove.has(dateStr);
-
     const isConfirmed = confirmedDates.has(dateStr);
+    const isNextMonth = day.m !== calMonth; // 12月表示中に含まれる翌年1月分の日付
 
     let cls = 'day-cell';
     if (dow === 0 || isHol) cls += ' sunday-col';
@@ -413,13 +447,15 @@ async function renderCalendar() {
     if (isRegistered && !isPendingRemove) cls += isConfirmed ? ' confirmed' : ' registered';
     if (isPendingRemove) cls += ' pending-remove';
     if (isPendingAdd) cls += ' pending-add';
+    if (isNextMonth) cls += ' next-month-day';
     if (locked) cls += ' locked';
 
     const checkMark = (isRegistered && !isPendingRemove && isConfirmed) ? '<span class="confirm-check">✓</span>' : '';
     const holBadge = isHol ? '<span class="hol-badge">祝</span>' : '';
-    html += `<td><div class="${cls}" onclick="toggleDate('${dateStr}')">${checkMark}${d}${holBadge}</div></td>`;
-    if ((firstDay + d) % 7 === 0 && d < daysInMonth) html += '</tr><tr>';
-  }
+    const dayLabel = isNextMonth ? `${day.m}/${day.d}` : String(day.d);
+    html += `<td><div class="${cls}" onclick="toggleDate('${dateStr}')">${checkMark}<span class="day-num">${dayLabel}</span>${holBadge}</div></td>`;
+    if ((firstDay + idx + 1) % 7 === 0 && idx < dayList.length - 1) html += '</tr><tr>';
+  });
   html += '</tr>';
   document.getElementById('cal-body').innerHTML = html;
   applyLockState(locked);
@@ -434,9 +470,12 @@ function applyLockState(locked) {
   const intro = document.getElementById('edit-intro');
   if (locked) {
     const dl = getMonthDeadline(calYear, calMonth);
+    const periodLabel = calMonth === 12
+      ? `${calYear}年12月1日〜${calYear + 1}年1月4日`
+      : `${calYear}年${calMonth}月`;
     if (lockBanner) {
       lockBanner.className = 'lock-banner';
-      lockBanner.innerHTML = `<span>${calYear}年${calMonth}月の支障日の受付は終了しました（締切：${calMonth}月${dl.getDate()}日 16時）。変更が必要な場合は当番表作成者にご連絡ください。</span>`;
+      lockBanner.innerHTML = `<span>${periodLabel}の支障日の受付は終了しました（締切：${calMonth}月${dl.getDate()}日 16時）。変更が必要な場合は当番表作成者にご連絡ください。</span>`;
     }
     if (btnRow) btnRow.style.display = 'none';
     if (intro) intro.style.display = 'none';
