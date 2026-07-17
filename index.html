@@ -719,10 +719,10 @@ async function renderRosterCalendar() {
     const holBadge = isHol ? '<span class="hol-badge" style="margin-top:0">祝</span>' : '';
     const dayLabel = isNextMonth ? `${day.m}/${day.d}` : String(day.d);
     const nameHtml = dutyName ? `<span class="duty-name">${dutyName}</span>` : '';
-    const nameRowHtml = (dutyName || isHol)
-      ? `<div style="display:flex;align-items:center;justify-content:center;gap:2px;line-height:1">${nameHtml}${holBadge}</div>`
-      : '';
-    html += `<td><div class="${cls}"><span class="day-num">${dayLabel}</span>${nameRowHtml}</div></td>`;
+    const dayRowHtml = `<div style="display:flex;align-items:center;justify-content:center;gap:2px;line-height:1">
+      <span class="day-num">${dayLabel}</span>${holBadge}
+    </div>`;
+    html += `<td><div class="${cls}">${dayRowHtml}${nameHtml}</div></td>`;
     if ((firstDay + idx + 1) % 7 === 0 && idx < dayList.length - 1) html += '</tr><tr>';
   });
   html += '</tr>';
