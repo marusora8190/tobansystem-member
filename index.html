@@ -159,7 +159,7 @@
   <!-- ログイン画面 -->
   <div id="login-view" class="card">
     <div class="card-title">ログインナンバーを入力してください</div>
-    <input id="login-code" type="password" inputmode="numeric" pattern="\d*" maxlength="4" autocomplete="off" aria-label="ログインナンバー" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}">
+    <input id="login-code" type="text" inputmode="numeric" pattern="\d*" maxlength="4" autocomplete="off" autocapitalize="off" spellcheck="false" style="-webkit-text-security:disc;text-security:disc;" aria-label="ログインナンバー" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}">
     <div class="checkbox-row">
       <input type="checkbox" id="remember-me">
       <label for="remember-me" style="margin:0">この端末を記憶する（次回から自動ログイン）</label>
