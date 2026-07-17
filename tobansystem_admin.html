@@ -3165,7 +3165,7 @@ function exportCSV() {
     rows.push([
       displayDate,
       mInfo ? (mInfo.staff_id ?? '') : '',  // ID列
-      loginNoVal,                            // ログインナンバー列
+      loginNoVal ? `="${loginNoVal}"` : '',  // ログインナンバー列（Excelで先頭の0が消えないよう文字列指定）
       mInfo ? mInfo.name : '',              // 当番者列
       mInfo ? (mInfo.department || '') : '',
       mInfo ? (mInfo.phone || mInfo.phone_number || mInfo.tel || '') : '',
