@@ -150,10 +150,12 @@
   /* スマホ幅では1マスが狭くなるため、名前が2段にならないよう文字サイズを少し縮小 */
   @media (max-width: 420px) {
     .day-cell .duty-name { font-size: 7.5px; }
+    .day-cell .duty-name.name-long { font-size: 6.3px; letter-spacing: -0.3px; }
     .day-cell.roster-cell { padding-top: 3px; }
   }
   @media (max-width: 360px) {
     .day-cell .duty-name { font-size: 6.8px; }
+    .day-cell .duty-name.name-long { font-size: 5.6px; letter-spacing: -0.4px; }
   }
 </style>
 </head>
@@ -726,7 +728,8 @@ async function renderRosterCalendar() {
 
     const holBadge = isHol ? '<span class="hol-badge" style="margin-top:0">祝</span>' : '';
     const dayLabel = isNextMonth ? `${day.m}/${day.d}` : String(day.d);
-    const nameHtml = dutyName ? `<span class="duty-name">${dutyName}</span>` : '';
+    const nameLongCls = dutyName.length >= 5 ? ' name-long' : '';
+    const nameHtml = dutyName ? `<span class="duty-name${nameLongCls}">${dutyName}</span>` : '';
     const dayRowHtml = `<div style="display:flex;align-items:center;justify-content:center;gap:2px;line-height:1">
       <span class="day-num">${dayLabel}</span>${holBadge}
     </div>`;
