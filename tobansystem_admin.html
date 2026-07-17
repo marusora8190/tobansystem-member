@@ -353,7 +353,7 @@
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 28px;width:100%;max-width:320px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:15px;font-weight:600;color:var(--text);">神殿奉仕当番表作成システム</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">パスワードを入力してください</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">ログインナンバーを入力してください</div>
     </div>
     <input id="login-password" type="password" inputmode="numeric" pattern="\d*" maxlength="4" style="margin-bottom:12px;" onkeydown="if(event.key==='Enter') checkLoginPassword()">
     <button class="btn btn-primary" style="width:100%;" onclick="checkLoginPassword()">ログイン</button>
@@ -416,8 +416,9 @@
       <div class="section-title">詰員名簿管理</div>
       <div class="card" id="member-add-card" style="padding:6px 10px;margin-bottom:8px">
         <div class="card-title" style="margin-bottom:3px">新しいメンバーを追加</div>
-        <div class="form-grid" style="grid-template-columns:repeat(4, 1fr);gap:6px">
-          <div class="form-group"><label>ID</label><input id="m-no" placeholder="例: 23"></div>
+        <div class="form-grid" style="grid-template-columns:repeat(5, 1fr);gap:6px">
+          <div class="form-group"><label>ID</label><input id="m-staffid" placeholder="例: 23"></div>
+          <div class="form-group"><label>ログインナンバー</label><input id="m-no" placeholder="例: 0060"></div>
           <div class="form-group"><label>氏名 *</label><input id="m-name" placeholder="山本 和幸"></div>
           <div class="form-group"><label>部署</label><input id="m-dept" placeholder="運営課"></div>
           <div class="form-group"><label>電話番号</label><input id="m-phone" placeholder="5401"></div>
@@ -431,8 +432,8 @@
         <div class="card-title">メンバー一覧 <span id="member-count" style="font-size:12px;color:var(--text-hint)"></span></div>
         <div class="table-wrap">
           <table class="members-table">
-            <thead><tr><th>ID</th><th>氏名</th><th>部署</th><th>電話</th><th>状態</th><th></th></tr></thead>
-            <tbody id="members-body"><tr><td colspan="6" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+            <thead><tr><th>ID</th><th>ログインナンバー</th><th>氏名</th><th>部署</th><th>電話</th><th>状態</th><th></th></tr></thead>
+            <tbody id="members-body"><tr><td colspan="7" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -967,7 +968,25 @@ async function loadMembers() {
   members = data || [];
   members.sort((a, b) => (parseInt(a.member_no) || 9999) - (parseInt(b.member_no) || 9999));
   renderMembersTable();
+  prefillNextMemberIds();
   return members;
+}
+
+// 新規メンバー追加フォームの「ID」「ログインナンバー」に、次の番号を自動で入力する。
+// 次のID＝現在アクティブなメンバーの中で最大のID＋1（ログインナンバーは常にID×2を4桁ゼロ埋め）。
+// すでに何か入力されている場合は上書きしない。
+function prefillNextMemberIds() {
+  const staffIdInput = document.getElementById('m-staffid');
+  const noInput = document.getElementById('m-no');
+  if (!staffIdInput || !noInput) return;
+  if (staffIdInput.value.trim() || noInput.value.trim()) return; // 入力中のものは上書きしない
+  const maxStaffId = members.reduce((max, m) => {
+    const v = parseInt(m.staff_id);
+    return (!isNaN(v) && v > max) ? v : max;
+  }, 0);
+  const nextId = maxStaffId + 1;
+  staffIdInput.value = nextId;
+  noInput.value = String(nextId * 2).padStart(4, '0');
 }
 
 async function loadHolidays() {
@@ -1133,14 +1152,16 @@ async function loadSchedules() {
 function renderMembersTable() {
   document.getElementById('member-count').textContent = '';
   const body = document.getElementById('members-body');
-  if (!members.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-hint)">メンバーがいません</td></tr>'; return; }
+  if (!members.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-hint)">メンバーがいません</td></tr>'; return; }
   body.innerHTML = members.map(m => {
     const phoneField = m.hasOwnProperty('phone') ? 'phone' : (m.hasOwnProperty('phone_number') ? 'phone_number' : (m.hasOwnProperty('tel') ? 'tel' : 'phone'));
     const phoneVal = m.phone || m.phone_number || m.tel || '';
     const deptVal = m.department || '';
-    const noVal = m.member_no || '';
+    const noVal = (m.member_no !== null && m.member_no !== undefined && m.member_no !== '') ? String(m.member_no).padStart(4, '0') : '';
+    const staffIdVal = (m.staff_id !== null && m.staff_id !== undefined) ? String(m.staff_id) : '';
     return `
       <tr>
+        <td><input type="text" value="${staffIdVal.replace(/"/g,'&quot;')}" placeholder="—" style="width:60px;text-align:center" onchange="updateMemberField('${m.id}','staff_id',this.value)"></td>
         <td><input type="text" value="${String(noVal).replace(/"/g,'&quot;')}" placeholder="—" style="width:70px;text-align:center" onchange="updateMemberField('${m.id}','member_no',this.value)"></td>
         <td><input type="text" value="${String(m.name || '').replace(/"/g,'&quot;')}" placeholder="氏名未設定" style="width:100%;min-width:110px;font-weight:600" onchange="updateMemberField('${m.id}','name',this.value)"></td>
         <td><input type="text" value="${deptVal.replace(/"/g,'&quot;')}" placeholder="部署未設定" style="width:100%;min-width:100px" onchange="updateMemberField('${m.id}','department',this.value)"></td>
@@ -1173,9 +1194,11 @@ async function addMember() {
   if (!name) { showMsg('member-msg', '氏名を入力してください', 'error'); return; }
   
   const noVal = document.getElementById('m-no').value.trim();
+  const staffIdVal = document.getElementById('m-staffid').value.trim();
   const payload = { 
     name, 
     member_no: noVal || null,
+    staff_id: staffIdVal || null,
     department: document.getElementById('m-dept').value.trim() || null,
     phone: document.getElementById('m-phone').value.trim() || null
   };
@@ -1183,6 +1206,7 @@ async function addMember() {
   const { error } = await sbClient.from('members').insert(payload);
   if (error) { showMsg('member-msg', error.message, 'error'); return; }
   showMsg('member-msg', `${name} を追加しました`, 'success');
+  document.getElementById('m-staffid').value = '';
   document.getElementById('m-no').value = '';
   document.getElementById('m-name').value = '';
   document.getElementById('m-dept').value = '';
@@ -3727,10 +3751,10 @@ async function seedBasicHolidays() {
 }
 
 // =============================================
-// ログイン（固定パスワード）
+// ログイン（固定ログインナンバー）
 // =============================================
-// 当番表作成者用の固定パスワード。変更したい場合はこの値を書き換える。
-const ACCESS_PASSWORD = '0849';
+// 当番表作成者用の固定ログインナンバー。変更したい場合はこの値を書き換える。
+const ACCESS_PASSWORD = '0098';
 
 function checkLoginPassword() {
   const input = document.getElementById('login-password');
@@ -3738,7 +3762,7 @@ function checkLoginPassword() {
   if (val === ACCESS_PASSWORD) {
     unlockApp();
   } else {
-    document.getElementById('login-msg').textContent = 'パスワードが違います';
+    document.getElementById('login-msg').textContent = 'ログインナンバーが違います';
     input.value = '';
     input.focus();
   }
@@ -3764,7 +3788,7 @@ function startApp() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  // ページを開くたびに必ずパスワード入力を求める（認証状態は保持しない）
+  // ページを開くたびに必ずログインナンバー入力を求める（認証状態は保持しない）
   document.getElementById('login-password').focus();
 });
 </script>
