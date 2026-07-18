@@ -520,7 +520,7 @@ async function renderCalendar() {
     if (locked) cls += ' locked';
 
     const checkMark = (isRegistered && !isPendingRemove && isConfirmed) ? '<span class="confirm-check">✓</span>' : '';
-    const holBadge = isHol ? '<span class="hol-badge">祝</span>' : '';
+    const holBadge = isHol ? '<span class="hol-badge">休日</span>' : '';
     const dayLabel = isNextMonth ? `${day.m}/${day.d}` : String(day.d);
     html += `<td><div class="${cls}" onclick="toggleDate('${dateStr}')">${checkMark}<span class="day-num">${dayLabel}</span>${holBadge}</div></td>`;
     if ((firstDay + idx + 1) % 7 === 0 && idx < dayList.length - 1) html += '</tr><tr>';
@@ -728,7 +728,7 @@ async function renderRosterCalendar() {
     if (isNextMonth) cls += ' next-month-day';
     if (isMyDuty) cls += ' my-duty';
 
-    const holBadge = isHol ? '<span class="hol-badge" style="margin-top:0">祝</span>' : '';
+    const holBadge = isHol ? '<span class="hol-badge" style="margin-top:0">休日</span>' : '';
     const dayLabel = isNextMonth ? `${day.m}/${day.d}` : String(day.d);
     const nameLongCls = dutyName.length >= 5 ? ' name-long' : '';
     const nameHtml = dutyName ? `<span class="duty-name${nameLongCls}">${dutyName}</span>` : '';
