@@ -2754,7 +2754,8 @@ async function generateSchedule() {
   // hard 制約（どの段階でも絶対に緩めない）：
   //   ・支障日には割り当てない
   //   ・月の予定回数が「0回」の人はその月は対象外
-  // それ以外（前回当番からの間隔／月の上限回数／年間目標回数／日祝の可否）は、
+  //   ・月の上限回数（1回／2回）は超えない（候補が見つからない日は「未割当」のまま残す）
+  // それ以外（前回当番からの間隔／年間目標回数／日祝の可否）は、
   // 候補者がどうしても見つからない場合にのみ、下の tiers の順で段階的に緩める。
   function getCandidatesForTier(dateStr, isSpecialDay, opts) {
     return members.map(m => {
@@ -2813,17 +2814,16 @@ async function generateSchedule() {
   }
 
   // 候補者が見つからない場合に、制約を段階的に緩めながら選び直す。
-  // 「月の予定回数の上限（monthlyCap）」は最後の最終手段としてのみ緩め、
-  // その場合でも常に「当月回数が最少の人」を優先するため、
-  // 同じ人が3回選ばれたり、特定の人だけ0回になる事態を避けやすくしている。
+  // 「月の予定回数の上限（monthlyCap）」は、当番表作成者の方針により絶対に緩めない条件とする。
+  // どうしても候補が見つからない日は、誰かに無理に割り当てず「未割当」のまま残す
+  // （未割当の日は、当番表作成者が手動で確認・調整することを想定している）。
   const RELAX_TIERS = [
     { minGap: 8 },
     { minGap: 5 },
     { minGap: 2 },
     { ignoreInterval: true },
     { ignoreInterval: true, ignoreHolidayMatch: true },
-    { ignoreInterval: true, ignoreHolidayMatch: true, ignoreYearTarget: true },
-    { ignoreInterval: true, ignoreHolidayMatch: true, ignoreYearTarget: true, ignoreMonthlyCap: true }
+    { ignoreInterval: true, ignoreHolidayMatch: true, ignoreYearTarget: true }
   ];
 
   function pickCandidate(dateStr, isSpecialDay) {
