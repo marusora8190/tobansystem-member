@@ -322,13 +322,15 @@ function getCalendarDayList(year, month) {
   return days;
 }
 function getMonthLabel(year, month) {
-  if (month === 12) return `${year}年12月`;
-  return `${year}年${month}月`;
+  if (month === 12) return `${toTenrikyoYear(year)}年12月`;
+  return `${toTenrikyoYear(year)}年${month}月`;
 }
 function getMonthSubNote(year, month) {
-  if (month === 12) return `12月1日〜${year + 1}年1月4日分`;
+  if (month === 12) return `12月1日〜${toTenrikyoYear(year + 1)}年1月4日分`;
   return '';
 }
+// 表示用：西暦年を天理教年号（西暦－1837）に変換する
+function toTenrikyoYear(year) { return year - 1837; }
 // ログイン番号の比較用正規化：数字以外（前ゼロを含む記号・空白）を取り除き、
 // 数値としての詰員番号に変換する。これにより「0043」「43」いずれの入力でも
 // 詰員番号43番として同じ人に一致させられる（NaN の場合は null を返す）。
@@ -540,8 +542,8 @@ function applyLockState(locked) {
   if (locked) {
     const dl = getMonthDeadline(calYear, calMonth);
     const periodLabel = calMonth === 12
-      ? `${calYear}年12月1日〜${calYear + 1}年1月4日`
-      : `${calYear}年${calMonth}月`;
+      ? `${toTenrikyoYear(calYear)}年12月1日〜${toTenrikyoYear(calYear + 1)}年1月4日`
+      : `${toTenrikyoYear(calYear)}年${calMonth}月`;
     if (lockBanner) {
       lockBanner.className = 'lock-banner';
       lockBanner.innerHTML = `<span>${periodLabel}の支障日の受付は終了しました（締切：${dl.getMonth() + 1}月${dl.getDate()}日 16時）。変更が必要な場合は当番表作成者にご連絡ください。</span>`;
