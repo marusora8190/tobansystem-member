@@ -322,11 +322,11 @@ function getCalendarDayList(year, month) {
   return days;
 }
 function getMonthLabel(year, month) {
-  if (month === 12) return `${toTenrikyoYear(year)}年12月`;
-  return `${toTenrikyoYear(year)}年${month}月`;
+  if (month === 12) return `立教${toTenrikyoYear(year)}年12月`;
+  return `立教${toTenrikyoYear(year)}年${month}月`;
 }
 function getMonthSubNote(year, month) {
-  if (month === 12) return `12月1日〜${toTenrikyoYear(year + 1)}年1月4日分`;
+  if (month === 12) return `12月1日〜立教${toTenrikyoYear(year + 1)}年1月4日分`;
   return '';
 }
 // 表示用：西暦年を天理教年号（西暦－1837）に変換する
@@ -542,8 +542,8 @@ function applyLockState(locked) {
   if (locked) {
     const dl = getMonthDeadline(calYear, calMonth);
     const periodLabel = calMonth === 12
-      ? `${toTenrikyoYear(calYear)}年12月1日〜${toTenrikyoYear(calYear + 1)}年1月4日`
-      : `${toTenrikyoYear(calYear)}年${calMonth}月`;
+      ? `立教${toTenrikyoYear(calYear)}年12月1日〜立教${toTenrikyoYear(calYear + 1)}年1月4日`
+      : `立教${toTenrikyoYear(calYear)}年${calMonth}月`;
     if (lockBanner) {
       lockBanner.className = 'lock-banner';
       lockBanner.innerHTML = `<span>${periodLabel}の支障日の受付は終了しました（締切：${dl.getMonth() + 1}月${dl.getDate()}日 16時）。変更が必要な場合は当番表作成者にご連絡ください。</span>`;
