@@ -713,18 +713,7 @@
 
     <div id="page-holidays" class="page">
       <div class="section-title">日曜祝日等管理</div>
-      <div class="alert alert-info">登録した日は「日祝当番」として扱われます（振替休日もここで登録してください）。</div>
-      <div class="card">
-        <div class="card-title">祝日を追加</div>
-        <div class="form-grid">
-          <div class="form-group"><label>日付 *</label><input id="hol-date" type="date"></div>
-          <div class="form-group"><label>名称 *</label><input id="hol-name" placeholder="例: 振替休日"></div>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" onclick="addHoliday()">追加する</button>
-        </div>
-        <div id="holiday-msg" style="margin-top:8px"></div>
-      </div>
+      <div class="alert alert-info">登録した日は「日祝当番」として扱われます。振替休日・国民の休日は下の「基本の祝日を一括登録」で自動計算されるので、通常は個別に追加する必要はありません。</div>
       <div class="card">
         <div class="card-title">基本の祝日を一括登録</div>
         <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px">元日・成人の日・建国記念の日など、法律で定められた祝日を2026年〜2050年まで一括登録します。振替休日・国民の休日（祝日に挟まれた平日）も自動計算して登録します。</p>
@@ -745,6 +734,18 @@
             <tbody id="holidays-body"><tr><td colspan="4" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
         </div>
+      </div>
+      <div class="card">
+        <div class="card-title">祝日を個別に追加</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:4px">上の一括登録に含まれない祝日や、特別な休日を個別に追加したい場合に使います。</p>
+        <div class="form-grid">
+          <div class="form-group"><label>日付 *</label><input id="hol-date" type="date"></div>
+          <div class="form-group"><label>名称 *</label><input id="hol-name" placeholder="例: 振替休日"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="addHoliday()">追加する</button>
+        </div>
+        <div id="holiday-msg" style="margin-top:8px"></div>
       </div>
     </div>
     <div id="page-chotome" class="page">
