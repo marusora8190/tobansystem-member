@@ -240,6 +240,11 @@
     will-change: transform; backface-visibility: hidden; transform: translateZ(0);
   }
   .mc2-table thead tr th { top: 0; box-shadow: 0 2px 0 var(--border); }
+  /* annual2-table（各メンバーの年間設定）だけは、氏名の行・「回数/日祝」の行の
+     2行見出しになっているため、2行目は1行目の高さ分だけ下にずらして固定する
+     （他のテーブルは見出しが実質1行のみなので、上のtop:0のままでよい） */
+  .annual2-table thead tr:first-child th { top: 0; box-shadow: none; }
+  .annual2-table thead tr:last-child th { top: var(--mc2-head1-h, 96px); box-shadow: 0 2px 0 var(--border); }
   /* 年度・月・日数（相当）の3列を横スクロールで固定
      ※nth-childは、見出し2行目（メンバー氏名などrowspanの陰に隠れる行）や合計行（colspan=3）で
        実際のセル位置とズレて誤爆する（＝横スクロール時に崩れる原因）ため、
@@ -539,7 +544,7 @@
         <div class="card-title" style="margin-bottom:6px;">📌 各メンバーの年間設定</div>
         <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;line-height:1.4">月ごとの当番回数（0=身上等／1=通常／2=通常または他の人の代わりに当番）と日祝当番の月を設定できます。各行の右端で当番人数合計・日祝当番人数合計が日数と一致しているか自動チェックします（<span style="color:#2e7d32;font-weight:600">✓一致</span> / <span style="color:#e89090;font-weight:600">✗不一致</span>）。</p>
         <div class="annual-wrap annual-wrap-compact">
-          <table class="mc2-table">
+          <table class="mc2-table annual2-table">
             <thead id="annual2-head"></thead>
             <tbody id="annual2-body"><tr><td style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
@@ -1589,16 +1594,14 @@ function renderMultiCount2Table(years) {
     <tr>
       <th class="mc2-col1" style="width:50px">年度</th>
       <th class="mc2-col2" style="width:30px">月</th>
-      <th class="mc2-col3" style="width:28px">日数</th>
+      <th class="mc2-col3" style="width:56px">合計/<br>日数</th>
       ${nameRow}
-      <th style="width:56px">合計/<br>日数</th>
     </tr>
   `;
 
   let rowsHtml = '';
   years.forEach(y => {
     for (let mon = 1; mon <= 12; mon++) {
-      const dim = daysInMonth(y, mon);
       // rowspanをsticky(横スクロール固定)列に使うと、ブラウザによって「年度」セルの
       // 縦位置がずれて表示が崩れることがあるため、rowspanは使わず、12ヶ月分すべての行に
       // 同じ背景色のセルを敷いて、1月の行だけ年度を表示することで見た目上の結合を再現する
@@ -1618,13 +1621,13 @@ function renderMultiCount2Table(years) {
           </select>
         </td>`;
       }).join('');
-      rowsHtml += `<tr>${yearCellHtml}<td class="mc2-col2" style="text-align:center;font-weight:500;font-size:11px;padding:2px 1px">${mon}月</td><td class="mc2-col3" style="text-align:center;color:var(--text-muted);font-size:11px;padding:2px 1px">${dim}</td>${memberCellsHtml}<td id="mc2-row-${y}-${mon}" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td></tr>`;
+      rowsHtml += `<tr>${yearCellHtml}<td class="mc2-col2" style="text-align:center;font-weight:500;font-size:11px;padding:2px 1px">${mon}月</td><td id="mc2-row-${y}-${mon}" class="mc2-col3" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td>${memberCellsHtml}</tr>`;
     }
     const memberTotalsHtml = members.map(m => {
       const total = monthlyValsFromCell(getMultiCell(y, m.id));
       return `<td id="mc2-year-total-${m.id}-${y}" style="text-align:center;font-weight:700;font-size:11px">${total}</td>`;
     }).join('');
-    rowsHtml += `<tr class="mc2-total-row"><td class="mc2-col1" colspan="3" style="white-space:nowrap;font-weight:700;padding:4px 4px;font-size:11px">${y}年 年間合計</td>${memberTotalsHtml}<td id="mc2-grand-${y}" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td></tr>`;
+    rowsHtml += `<tr class="mc2-total-row"><td class="mc2-col1" colspan="2" style="white-space:nowrap;font-weight:700;padding:4px 4px;font-size:11px">${y}年 年間合計</td><td id="mc2-grand-${y}" class="mc2-col3" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td>${memberTotalsHtml}</tr>`;
   });
   body.innerHTML = rowsHtml;
 
@@ -1799,9 +1802,8 @@ function renderMultiHolTable2(years) {
     <tr>
       <th class="mc2-col1" rowspan="2" style="width:22px">年<br>度</th>
       <th class="mc2-col2" rowspan="2" style="width:30px">月</th>
-      <th class="mc2-col3" rowspan="2" style="width:20px">日祝<br>日数</th>
+      <th class="mc2-col3" rowspan="2" style="width:56px">合計/<br>日祝日数</th>
       ${nameRow}
-      <th rowspan="2" style="width:56px">合計/<br>日祝日数</th>
     </tr>
     <tr></tr>
   `;
@@ -1809,7 +1811,6 @@ function renderMultiHolTable2(years) {
   let rowsHtml = '';
   years.forEach(y => {
     for (let mon = 1; mon <= 12; mon++) {
-      const expectedHol = sundayHolidayCountInMonth(y, mon);
       // rowspanをsticky(横スクロール固定)列に使うと、ブラウザによって「年度」セルの
       // 縦位置がずれて表示が崩れることがあるため、rowspanは使わず、12ヶ月分すべての行に
       // 同じ背景色のセルを敷いて、1月の行だけ年度を表示することで見た目上の結合を再現する
@@ -1820,13 +1821,13 @@ function renderMultiHolTable2(years) {
         const checked = cell.hol.includes(mon);
         return `<td style="text-align:center;padding:1px 0"><input type="checkbox" data-mid="${m.id}" data-year="${y}" data-month="${mon}" ${checked ? 'checked' : ''} onchange="onMultiHol2Change(this)" style="width:14px;height:14px;cursor:pointer;accent-color:#e89090"></td>`;
       }).join('');
-      rowsHtml += `<tr>${yearCellHtml}<td class="mc2-col2" style="text-align:center;font-weight:500;font-size:11px;padding:2px 1px">${mon}月</td><td class="mc2-col3" style="text-align:center;color:var(--text-muted);font-size:11px;padding:2px 1px">${expectedHol}</td>${memberCellsHtml}<td id="mh2-row-${y}-${mon}" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td></tr>`;
+      rowsHtml += `<tr>${yearCellHtml}<td class="mc2-col2" style="text-align:center;font-weight:500;font-size:11px;padding:2px 1px">${mon}月</td><td id="mh2-row-${y}-${mon}" class="mc2-col3" style="text-align:center;font-size:10px;font-weight:600;padding:2px 1px"></td>${memberCellsHtml}</tr>`;
     }
     const memberTotalsHtml = members.map(m => {
       const total = getMultiCell(y, m.id).hol.length;
       return `<td id="mh2-year-total-${m.id}-${y}" style="text-align:center;font-weight:700;font-size:11px">${total}</td>`;
     }).join('');
-    rowsHtml += `<tr class="mc2-total-row"><td class="mc2-col1" colspan="3" style="white-space:nowrap;font-weight:700;padding:4px 4px;font-size:11px">${y}年 年間合計</td>${memberTotalsHtml}<td id="mh2-grand-${y}" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td></tr>`;
+    rowsHtml += `<tr class="mc2-total-row"><td class="mc2-col1" colspan="2" style="white-space:nowrap;font-weight:700;padding:4px 4px;font-size:11px">${y}年 年間合計</td><td id="mh2-grand-${y}" class="mc2-col3" style="text-align:center;font-weight:700;font-size:10px;padding:2px 1px"></td>${memberTotalsHtml}</tr>`;
   });
   body.innerHTML = rowsHtml;
 
