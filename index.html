@@ -208,6 +208,7 @@
       <div>
         <div class="greeting" id="badge-greeting"></div>
         <div class="name" id="badge-name"></div>
+        <div class="dept" id="badge-dept"></div>
       </div>
       <button class="logout-link" onclick="doLogout()">🚪 ログアウト</button>
     </div>
@@ -435,7 +436,8 @@ async function enterAsMember(member) {
   document.getElementById('picker-view').classList.add('hidden');
   document.getElementById('main-view').classList.remove('hidden');
   document.getElementById('badge-greeting').textContent = getGreeting();
-  document.getElementById('badge-name').textContent = member.name + ' さん' + (member.department ? '（' + member.department + '）' : '');
+  document.getElementById('badge-name').textContent = member.name + ' さん';
+  document.getElementById('badge-dept').textContent = member.department || '';
 
   await loadHolidays();
   const today = new Date();
