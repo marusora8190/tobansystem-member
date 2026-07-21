@@ -378,6 +378,7 @@
   <div style="margin-left:auto;display:flex;align-items:center;gap:12px;">
     <span id="conn-status" style="font-size:12px;opacity:0.7">未接続</span>
     <button class="btn btn-sm" style="border-color:rgba(255,255,255,0.3);color:#fff;background:rgba(255,255,255,0.1)" onclick="showConfigModal()">⚙ 設定</button>
+    <button class="btn btn-sm" style="border-color:rgba(255,255,255,0.3);color:#fff;background:rgba(255,255,255,0.1)" onclick="doLogout()">🚪 ログアウト</button>
   </div>
 </header>
 
@@ -3534,6 +3535,13 @@ async function checkLoginPassword() {
     input.value = '';
     input.focus();
   }
+}
+
+function doLogout() {
+  if (!confirm('ログアウトしますか？')) return;
+  // ページを再読み込みすることで、認証トークンを含む状態を確実に破棄し、
+  // 必ずログインナンバー入力画面からやり直す仕様に合わせる。
+  location.reload();
 }
 
 function unlockApp() {
