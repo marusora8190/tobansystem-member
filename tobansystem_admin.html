@@ -3511,23 +3511,24 @@ async function checkLoginPassword() {
 
   msgEl.textContent = '確認中...';
   try {
-    const client = ensureSbClient();
-    const { data, error } = await client
-      .from('members')
-      .select('id')
-      .eq('member_no', num)
-      .eq('is_active', true)
-      .limit(1);
-    if (error) throw error;
+    const cfg = getSupabaseConfig();
+    const res = await fetch(`${cfg.url}/functions/v1/login-member`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': cfg.key },
+      body: JSON.stringify({ member_no: num })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'ログインナンバーが違います');
+    const token = result.matches[0].token;
 
-    if (data && data.length > 0) {
-      msgEl.textContent = '';
-      unlockApp();
-    } else {
-      msgEl.textContent = 'ログインナンバーが違います';
-      input.value = '';
-      input.focus();
-    }
+    // Edge Functionが発行した本物のトークンを使い、以後のリクエストが
+    // authenticated ロールとして扱われるようクライアントを作り直す
+    sbClient = window.supabase.createClient(cfg.url, cfg.key, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+
+    msgEl.textContent = '';
+    unlockApp();
   } catch (e) {
     msgEl.textContent = 'ログインナンバーが違います';
     input.value = '';
