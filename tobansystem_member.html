@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ja" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>支障日申請｜神殿奉仕当番表システム</title>
+<meta name="description" content="神殿奉仕当番表システムの支障日申請ページです。ログインナンバーを入力してログインしてください。">
+<meta property="og:title" content="支障日申請｜神殿奉仕当番表システム">
+<meta property="og:description" content="神殿奉仕当番表システムの支障日申請ページです。ログインナンバーを入力してログインしてください。">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f9f7f4;
+    --surface: #ffffff;
+    --border: #e4e0d8;
+    --border-strong: #c8c2b4;
+    --text: #1a1814;
+    --text-muted: #6b6560;
+    --text-hint: #9e9890;
+    --accent: #4a5e3a;
+    --accent-light: #e8eedf;
+    --accent-dark: #2e3d22;
+    --danger: #e89090;
+    --danger-light: #fceaea;
+    --info: #1a4a7a;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif;
+    background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6;
+    padding-bottom: 40px;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 0 14px; }
+
+  header.app-header {
+    background: var(--accent-dark); color: #fff; padding: 14px 16px;
+    text-align: center; margin-bottom: 18px;
+  }
+  header.app-header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.03em; }
+  header.app-header .subtitle { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 20px 18px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--accent-dark); margin-bottom: 12px; }
+
+  label { display: block; font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 6px; }
+  input[type="password"], input[type="text"], input[type="tel"] {
+    width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius);
+    padding: 14px 12px; font-size: 22px; letter-spacing: 0.4em; text-align: center;
+    background: #fff; color: var(--text);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid var(--border-strong); background: #fff; color: var(--text);
+    border-radius: var(--radius); padding: 12px 16px; font-size: 14px; cursor: pointer;
+    font-family: inherit; -webkit-appearance: none; appearance: none;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); font-weight: 600; }
+  .btn-block { width: 100%; }
+  .btn-sm { padding: 8px 12px; font-size: 13px; }
+  .btn-danger { color: var(--info); border-color: var(--border-strong); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .btn-row .btn { flex: 1 1 0; }
+  .btn:disabled { opacity: 0.45; cursor: default; }
+
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: var(--text-muted); }
+  .checkbox-row input { width: 18px; height: 18px; }
+
+  #login-msg, #save-msg { margin-top: 10px; font-size: 13px; min-height: 18px; }
+  .msg-error { color: #b3261e; }
+  .msg-success { color: var(--accent-dark); }
+  .msg-info { color: var(--text-muted); }
+
+  .member-badge {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--accent-light); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 16px;
+  }
+  .member-badge .greeting { font-size: 12px; color: var(--text-muted); margin-bottom: 1px; }
+  .member-badge .name { font-weight: 700; font-size: 15px; color: var(--accent-dark); }
+  .member-badge .dept { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .member-badge .logout-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12.5px; font-weight: 600; color: var(--accent-dark);
+    background: #fff; border: 1px solid var(--border-strong);
+    border-radius: 20px; cursor: pointer; font-family: inherit;
+    padding: 7px 12px; flex-shrink: 0; white-space: nowrap;
+  }
+  .member-badge .logout-link:active { background: var(--accent-light); }
+
+  .month-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .month-nav .month-label { font-size: 17px; font-weight: 700; color: var(--accent-dark); }
+  .month-nav button { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border-strong); background: #fff; font-size: 16px; cursor: pointer; }
+
+  table.cal { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  table.cal th { font-size: 11px; color: var(--text-muted); padding: 4px 0; text-align: center; font-weight: 500; }
+  table.cal td { padding: 3px; }
+  table.cal td.empty-cell {}
+  .day-cell {
+    width: 100%; aspect-ratio: 1 / 1; min-height: 42px; border-radius: 10px; border: 1.5px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; background: #fff; color: var(--text); position: relative; user-select: none;
+  }
+  .day-cell .hol-badge { font-size: 8px; line-height: 1; margin-top: 1px; color: inherit; }
+  .day-cell.sunday-col { color: #c0392b; }
+  .day-cell.saturday-col { color: var(--info); }
+
+  .day-cell.registered { background: var(--danger-light); border-color: var(--danger); color: #a33; font-weight: 700; }
+  .day-cell.confirmed { background: #e3f2d6; border-color: #7cb342; color: #33691e; font-weight: 700; }
+  .day-cell .confirm-check { position: absolute; top: 1px; right: 3px; font-size: 9px; line-height: 1; color: #33691e; font-weight: 700; }
+  .day-cell.pending-add { background: #fff3b0; border-color: #d4af00; color: var(--text); font-weight: 700; }
+  .day-cell.pending-remove { background: #eee; border-color: #bbb; color: #999; text-decoration: line-through; }
+  .day-cell.pending-remove::after { content: "取消"; position: absolute; bottom: 2px; font-size: 8px; }
+  .day-cell.next-month-day { background: #f2f0ea; }
+  .day-cell.next-month-day .day-num { font-size: 11px; }
+
+  .confirm-banner { border-radius: var(--radius); padding: 8px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; line-height: 1.4; }
+  .confirm-banner.ok { background: #e3f2d6; border: 1px solid #7cb342; color: #33691e; }
+  .confirm-banner.pending { background: #fff7e6; border: 1px solid #e0b45a; color: #8a5a00; }
+
+  .lock-banner { background: #f2e7e5; border: 1px solid #c98b83; color: #7a2e24; border-radius: var(--radius); padding: 9px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; line-height: 1.5; display: flex; gap: 6px; align-items: flex-start; }
+  .lock-banner::before { content: "🔒"; }
+  .day-cell.locked { cursor: default; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; font-size: 11px; color: var(--text-muted); }
+  .legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 3px; vertical-align: -2px; }
+
+  .footer-note { text-align: center; font-size: 11px; color: var(--text-hint); margin-top: 18px; line-height: 1.7; }
+  .hidden { display: none !important; }
+  .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .picker-item {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
+  }
+  .picker-item:active { background: var(--accent-light); }
+
+  .tab-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn {
+    flex: 1; padding: 11px; border-radius: var(--radius); border: 1px solid var(--border-strong);
+    background: #fff; color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: inherit; -webkit-appearance: none; appearance: none;
+  }
+  .tab-btn.active { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+
+  .day-cell.roster-cell { cursor: default; gap: 1px; padding-top: 5px; }
+  .day-cell.roster-cell.my-duty { background: #fff3b0; border-color: #d4af00; font-weight: 700; }
+  .day-cell.roster-cell.my-duty .duty-name { color: #7a5c00; }
+  .day-cell .duty-name {
+    font-size: 9px; font-weight: 700; color: var(--accent-dark); line-height: 1.15;
+    max-width: 96%; white-space: normal; word-break: break-all; text-align: center;
+  }
+  /* スマホ幅では1マスが狭くなるため、名前が2段にならないよう文字サイズを少し縮小 */
+  @media (max-width: 600px) {
+    .day-cell .duty-name { font-size: 7.3px; }
+    .day-cell .duty-name.name-long { font-size: 6px; letter-spacing: -0.3px; }
+    .day-cell.roster-cell { padding-top: 3px; }
+  }
+  @media (max-width: 400px) {
+    .day-cell .duty-name { font-size: 6.6px; }
+    .day-cell .duty-name.name-long { font-size: 5.3px; letter-spacing: -0.4px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>支障日申請</h1>
+  <div class="subtitle">神殿奉仕当番表作成システム（勤務者用）</div>
+</header>
+
+<div class="wrap">
+
+  <!-- ログイン画面 -->
+  <div id="login-view" class="card">
+    <div class="card-title">ログインナンバーを入力してください</div>
+    <input id="login-code" type="text" inputmode="numeric" pattern="\d*" maxlength="4" autocomplete="off" autocapitalize="off" spellcheck="false" style="-webkit-text-security:disc;text-security:disc;" aria-label="ログインナンバー" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin();}">
+    <div class="checkbox-row">
+      <input type="checkbox" id="remember-me">
+      <label for="remember-me" style="margin:0">この端末を記憶する（次回から自動ログイン）</label>
+    </div>
+    <div class="btn-row">
+      <button id="login-btn" class="btn btn-primary btn-block" onclick="doLogin()">ログイン</button>
+    </div>
+    <div id="login-msg"></div>
+  </div>
+
+  <!-- 複数名該当時の選択画面 -->
+  <div id="picker-view" class="card hidden">
+    <div class="card-title">この番号に複数名が登録されています。ご自身のお名前を選んでください。</div>
+    <div id="picker-list"></div>
+    <div class="btn-row">
+      <button class="btn btn-block" onclick="backToLogin()">戻る</button>
+    </div>
+  </div>
+
+  <!-- メイン画面 -->
+  <div id="main-view" class="hidden">
+    <div class="member-badge">
+      <div>
+        <div class="greeting" id="badge-greeting"></div>
+        <div class="name" id="badge-name"></div>
+        <div class="dept" id="badge-dept"></div>
+      </div>
+      <button class="logout-link" onclick="doLogout()">🚪 ログアウト</button>
+    </div>
+
+    <div class="tab-bar">
+      <button id="tab-btn-input" class="tab-btn active" onclick="switchTab('input')">支障日入力</button>
+      <button id="tab-btn-roster" class="tab-btn" onclick="switchTab('roster')">当番表</button>
+    </div>
+
+    <div id="tab-panel-input">
+    <div class="card">
+      <div class="card-title">支障日を入力してください</div>
+      <p id="edit-intro" style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">
+        当番に入れない日をタップして選択し、下の「支障日を申請する」ボタンを押してください。すでに登録済みの日をタップすると、取り消し（削除）を予約できます。
+      </p>
+
+      <div class="month-nav">
+        <button onclick="shiftCalMonth(-1)" aria-label="前の月">◀</button>
+        <div>
+          <div class="month-label" id="month-label"></div>
+          <div id="month-sub-note" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:2px"></div>
+        </div>
+        <button onclick="shiftCalMonth(1)" aria-label="次の月">▶</button>
+      </div>
+
+      <div id="lock-banner" class="hidden"></div>
+      <div id="confirm-status-banner"></div>
+
+      <table class="cal">
+        <thead><tr id="cal-dow-row"></tr></thead>
+        <tbody id="cal-body"></tbody>
+      </table>
+
+      <div class="legend">
+        <span><span class="sw" style="background:var(--danger-light);border:1.5px solid var(--danger)"></span>登録済み（確認待ち）</span>
+        <span><span class="sw" style="background:#e3f2d6;border:1.5px solid #7cb342"></span>確認済み（当番表作成者）</span>
+        <span><span class="sw" style="background:#fff3b0;border:1.5px solid #d4af00"></span>登録予定（未保存）</span>
+        <span><span class="sw" style="background:#eee;border:1.5px solid #bbb"></span>取消予定（未保存）</span>
+      </div>
+
+      <div class="btn-row" id="edit-btn-row">
+        <button class="btn btn-primary" id="save-btn" onclick="saveChanges()">支障日を申請する</button>
+        <button class="btn" onclick="clearPending()">選択をリセット</button>
+      </div>
+      <div id="save-msg"></div>
+    </div>
+    </div>
+
+    <div id="tab-panel-roster" class="hidden">
+      <div class="card">
+        <div class="card-title" style="text-align:center">神殿奉仕当番表（勤務者）</div>
+
+        <div class="month-nav">
+          <button onclick="shiftRosterMonth(-1)" aria-label="前の月">◀</button>
+          <div>
+            <div class="month-label" id="roster-month-label"></div>
+            <div id="roster-month-sub-note" style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:2px"></div>
+          </div>
+          <button onclick="shiftRosterMonth(1)" aria-label="次の月">▶</button>
+        </div>
+
+        <div id="roster-loading" style="text-align:center;font-size:12px;color:var(--text-muted);margin:8px 0"></div>
+
+        <table class="cal">
+          <thead><tr id="roster-dow-row"></tr></thead>
+          <tbody id="roster-cal-body"></tbody>
+        </table>
+
+        <div class="legend">
+          <span><span class="sw" style="background:#fff3b0;border:1.5px solid #d4af00"></span>ご自身の当番日</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// =============================================
+// Supabase 接続（本体システムと同じプロジェクトを利用）
+// =============================================
+const SUPABASE_URL = localStorage.getItem('sb_url') || 'https://thwlerletbndqqtrodub.supabase.co';
+const SUPABASE_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRod2xlcmxldGJuZHFxdHJvZHViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MTkzNzQsImV4cCI6MjA5NzM5NTM3NH0.DZDm7ofonli2ncqjQF4fUP3c83V3qLwOf12lc5cltEo';
+let sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DOW_JP = ['日','月','火','水','木','金','土'];
+const REMEMBER_KEY = 'toban_member_code';
+
+let holidays = {};
+let currentMember = null;   // { id, member_no, name, department, phone }
+let calYear, calMonth;      // 1-12
+let rosterYear, rosterMonth; // 当番表タブ用（支障日入力タブとは独立して月を移動できる）
+let rosterLoadedOnce = false;
+let registeredDates = new Set();
+let confirmedDates = new Set();   // 当番表作成者が確認済みにした支障日（registeredDatesの部分集合）
+let pendingAdd = new Set();
+let pendingRemove = new Set();
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function lastDayOfMonthStr(y, m) { return `${y}-${pad2(m)}-${pad2(new Date(y, m, 0).getDate())}`; }
+
+// =============================================
+// 12月の支障日入力は、当年12月1日〜翌年1月4日までを対象とする（正月奉仕の都合のため）。
+// 1月の画面は通常通り1月1日〜1月31日をそのまま表示する。
+// =============================================
+function getCalendarDayList(year, month) {
+  const days = [];
+  if (month === 12) {
+    const decDays = new Date(year, 12, 0).getDate(); // 31
+    for (let d = 1; d <= decDays; d++) days.push({ y: year, m: 12, d });
+    for (let d = 1; d <= 4; d++) days.push({ y: year + 1, m: 1, d });
+  } else {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) days.push({ y: year, m: month, d });
+  }
+  return days;
+}
+function getMonthLabel(year, month) {
+  if (month === 12) return `立教${toTenrikyoYear(year)}年12月`;
+  return `立教${toTenrikyoYear(year)}年${month}月`;
+}
+function getMonthSubNote(year, month) {
+  if (month === 12) return `12月1日〜立教${toTenrikyoYear(year + 1)}年1月4日分`;
+  return '';
+}
+// 表示用：西暦年を天理教年号（西暦－1837）に変換する
+function toTenrikyoYear(year) { return year - 1837; }
+// ログイン番号の比較用正規化：数字以外（前ゼロを含む記号・空白）を取り除き、
+// 数値としての詰員番号に変換する。これにより「0043」「43」いずれの入力でも
+// 詰員番号43番として同じ人に一致させられる（NaN の場合は null を返す）。
+function normalizeCode(str) {
+  const digits = String(str == null ? '' : str).replace(/[^0-9]/g, '');
+  if (!digits) return null;
+  const n = parseInt(digits, 10);
+  return Number.isNaN(n) ? null : n;
+}
+// 詰員番号を「00」付きの4桁表記に整形する（例：43 → "0043"）。
+function memberCodeStr(m) {
+  if (m == null || m.member_no == null || m.member_no === '') return '';
+  return String(m.member_no).padStart(4, '0');
+}
+function showMsg(elId, html, type) {
+  const el = document.getElementById(elId);
+  el.innerHTML = html;
+  el.className = type ? ('msg-' + type) : '';
+}
+
+async function loadHolidays() {
+  try {
+    const { data } = await sbClient.from('holidays').select('*');
+    (data || []).forEach(h => { holidays[h.date] = h.name; });
+  } catch (e) { /* 祝日表示は補助情報のため失敗しても致命的ではない */ }
+}
+
+// =============================================
+// ログイン
+// =============================================
+async function findMembersByCode(code) {
+  const target = normalizeCode(code);
+  if (target == null) return [];
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/login-member`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+    body: JSON.stringify({ member_no: target })
+  });
+  const result = await res.json();
+  if (!res.ok) {
+    if (res.status === 401) return [];
+    throw new Error(result.error || '接続エラー');
+  }
+  // 詰員番号（member_no）に紐づく本人確認済みの候補（本物のトークン付き）
+  return result.matches; // [{ member, token }, ...]
+}
+
+async function doLogin() {
+  const code = document.getElementById('login-code').value.trim();
+  if (normalizeCode(code) == null) {
+    showMsg('login-msg', 'ログイン番号（4桁）を入力してください', 'error');
+    return;
+  }
+  showMsg('login-msg', '<span class="spinner"></span> 確認中...', 'info');
+  try {
+    const matches = await findMembersByCode(code);
+    if (matches.length === 0) {
+      showMsg('login-msg', 'この番号に一致する詰員が見つかりませんでした。当番表作成者にご確認ください。', 'error');
+      return;
+    }
+    if (matches.length === 1) {
+      await enterAsMember(matches[0].member, matches[0].token);
+      return;
+    }
+    // 万一同じ詰員番号に複数名が紐づいている場合は選択させる
+    showPicker(matches);
+  } catch (e) {
+    showMsg('login-msg', '接続エラー: ' + e.message, 'error');
+  }
+}
+
+function showPicker(matches) {
+  document.getElementById('login-view').classList.add('hidden');
+  const list = document.getElementById('picker-list');
+  list.innerHTML = '';
+  matches.forEach(({ member: m, token }) => {
+    const div = document.createElement('div');
+    div.className = 'picker-item';
+    div.innerHTML = `<span>${m.name}</span><span style="color:var(--text-muted);font-size:12px">${m.department || ''}</span>`;
+    div.onclick = () => enterAsMember(m, token);
+    list.appendChild(div);
+  });
+  document.getElementById('picker-view').classList.remove('hidden');
+}
+
+function backToLogin() {
+  document.getElementById('picker-view').classList.add('hidden');
+  document.getElementById('login-view').classList.remove('hidden');
+  showMsg('login-msg', '', '');
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour >= 3 && hour < 10) return 'おはようございます';
+  if (hour >= 10 && hour < 17) return 'こんにちは';
+  return 'こんばんは';
+}
+
+async function enterAsMember(member, token) {
+  currentMember = member;
+  if (token) {
+    // Edge Functionが発行した本物のトークンを使い、以後のリクエストが
+    // authenticated ロールとして扱われるようクライアントを作り直す
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+  }
+  if (document.getElementById('remember-me').checked) {
+    try { localStorage.setItem(REMEMBER_KEY, memberCodeStr(member)); } catch (e) {}
+  }
+  document.getElementById('login-view').classList.add('hidden');
+  document.getElementById('picker-view').classList.add('hidden');
+  document.getElementById('main-view').classList.remove('hidden');
+  document.getElementById('badge-greeting').textContent = getGreeting();
+  document.getElementById('badge-name').textContent = member.name + ' さん';
+  document.getElementById('badge-dept').textContent = member.department || '';
+
+  await loadHolidays();
+  const today = new Date();
+  calYear = today.getFullYear();
+  calMonth = today.getMonth() + 1;
+  rosterYear = today.getFullYear();
+  rosterMonth = today.getMonth() + 1;
+  await renderCalendar();
+}
+
+function doLogout() {
+  try { localStorage.removeItem(REMEMBER_KEY); } catch (e) {}
+  currentMember = null;
+  pendingAdd.clear();
+  pendingRemove.clear();
+  document.getElementById('login-code').value = '';
+  document.getElementById('remember-me').checked = false;
+  document.getElementById('main-view').classList.add('hidden');
+  document.getElementById('picker-view').classList.add('hidden');
+  document.getElementById('login-view').classList.remove('hidden');
+  showMsg('login-msg', '', '');
+}
+
+// =============================================
+// カレンダー表示
+// =============================================
+async function fetchRegisteredDates(dayList) {
+  registeredDates = new Set();
+  confirmedDates = new Set();
+  const first = dayList[0], last = dayList[dayList.length - 1];
+  const startStr = `${first.y}-${pad2(first.m)}-${pad2(first.d)}`;
+  const endStr = `${last.y}-${pad2(last.m)}-${pad2(last.d)}`;
+  const { data, error } = await sbClient
+    .from('unavailable_dates')
+    .select('blocked_date, confirmed')
+    .eq('member_id', currentMember.id)
+    .gte('blocked_date', startStr)
+    .lte('blocked_date', endStr);
+  if (!error) (data || []).forEach(r => {
+    registeredDates.add(r.blocked_date);
+    if (r.confirmed) confirmedDates.add(r.blocked_date);
+  });
+}
+
+// =============================================
+// 支障日の受付締切（ロック）
+// =============================================
+// 締切は「前月」の10日 16:00（12月分＝翌1/4までの当番支障日のみ、前月＝11月の7日 16:00）
+// 例：6月分の締切は5月10日16:00、7月分の締切は6月10日16:00、12月分の締切は11月7日16:00
+// 締切を過ぎた月は、詰員本人による追加・取消ができなくなる（当番表作成者は引き続き変更可）。
+function getMonthDeadline(year, month) {
+  let dYear = year;
+  let dMonth = month - 1; // 前月（1〜12の範囲に正規化）
+  if (dMonth === 0) { dMonth = 12; dYear = year - 1; }
+  const day = (month === 12) ? 7 : 10;
+  return new Date(dYear, dMonth - 1, day, 16, 0, 0, 0);
+}
+function isMonthLocked(year, month) {
+  return Date.now() >= getMonthDeadline(year, month).getTime();
+}
+
+async function renderCalendar() {
+  const dayList = getCalendarDayList(calYear, calMonth);
+  document.getElementById('month-label').textContent = getMonthLabel(calYear, calMonth);
+  document.getElementById('month-sub-note').textContent = getMonthSubNote(calYear, calMonth);
+  const dowRow = document.getElementById('cal-dow-row');
+  dowRow.innerHTML = DOW_JP.map((d, i) => `<th style="${i===0?'color:#c0392b':i===6?'color:var(--info)':''}">${d}</th>`).join('');
+
+  await fetchRegisteredDates(dayList);
+
+  const locked = isMonthLocked(calYear, calMonth);
+  const first = dayList[0];
+  const firstDay = new Date(first.y, first.m - 1, first.d).getDay();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let html = '<tr>';
+  for (let i = 0; i < firstDay; i++) html += '<td class="empty-cell"></td>';
+  dayList.forEach((day, idx) => {
+    const dateStr = `${day.y}-${pad2(day.m)}-${pad2(day.d)}`;
+    const dow = (firstDay + idx) % 7;
+    const isHol = !!holidays[dateStr];
+    const isRegistered = registeredDates.has(dateStr);
+    const isPendingAdd = pendingAdd.has(dateStr);
+    const isPendingRemove = pendingRemove.has(dateStr);
+    const isConfirmed = confirmedDates.has(dateStr);
+    const isNextMonth = day.m !== calMonth; // 12月表示中に含まれる翌年1月分の日付
+
+    let cls = 'day-cell';
+    if (dow === 0 || isHol) cls += ' sunday-col';
+    else if (dow === 6) cls += ' saturday-col';
+    if (dateStr === todayStr) cls += ' today-cell';
+    if (isRegistered && !isPendingRemove) cls += isConfirmed ? ' confirmed' : ' registered';
+    if (isPendingRemove) cls += ' pending-remove';
+    if (isPendingAdd) cls += ' pending-add';
+    if (isNextMonth) cls += ' next-month-day';
+    if (locked) cls += ' locked';
+
+    const checkMark = (isRegistered && !isPendingRemove && isConfirmed) ? '<span class="confirm-check">✓</span>' : '';
+    const holBadge = isHol ? '<span class="hol-badge">休日</span>' : '';
+    const dayLabel = isNextMonth ? `${day.m}/${day.d}` : String(day.d);
+    html += `<td><div class="${cls}" onclick="toggleDate('${dateStr}')">${checkMark}<span class="day-num">${dayLabel}</span>${holBadge}</div></td>`;
+    if ((firstDay + idx + 1) % 7 === 0 && idx < dayList.length - 1) html += '</tr><tr>';
+  });
+  html += '</tr>';
+  document.getElementById('cal-body').innerHTML = html;
+  applyLockState(locked);
+  updateConfirmBanner();
+  updateSaveButtonState();
+}
+
+// 締切済みの月では、案内文・登録ボタンを隠し、締切メッセージを表示する
+function applyLockState(locked) {
+  const lockBanner = document.getElementById('lock-banner');
+  const btnRow = document.getElementById('edit-btn-row');
+  const intro = document.getElementById('edit-intro');
+  if (locked) {
+    const dl = getMonthDeadline(calYear, calMonth);
+    const periodLabel = calMonth === 12
+      ? `立教${toTenrikyoYear(calYear)}年12月1日〜立教${toTenrikyoYear(calYear + 1)}年1月4日`
+      : `立教${toTenrikyoYear(calYear)}年${calMonth}月`;
+    if (lockBanner) {
+      lockBanner.className = 'lock-banner';
+      lockBanner.innerHTML = `<span>${periodLabel}の支障日の受付は終了しました（締切：${dl.getMonth() + 1}月${dl.getDate()}日 16時）。変更が必要な場合は当番表作成者にご連絡ください。</span>`;
+    }
+    if (btnRow) btnRow.style.display = 'none';
+    if (intro) intro.style.display = 'none';
+  } else {
+    if (lockBanner) { lockBanner.className = 'hidden'; lockBanner.innerHTML = ''; }
+    if (btnRow) btnRow.style.display = '';
+    if (intro) intro.style.display = '';
+  }
+}
+
+// 表示中の月について、当番表作成者の確認状況をまとめて上部に表示する。
+// 保存済みの登録状態（registeredDates / confirmedDates）を基準に判定する。
+function updateConfirmBanner() {
+  const banner = document.getElementById('confirm-status-banner');
+  if (!banner) return;
+  const total = registeredDates.size;
+  if (total === 0) { banner.className = ''; banner.textContent = ''; return; }
+  let confirmed = 0;
+  registeredDates.forEach(d => { if (confirmedDates.has(d)) confirmed++; });
+  if (confirmed >= total) {
+    banner.className = 'confirm-banner ok';
+    banner.textContent = `✓ 当番表作成者が確認済み（${total}件すべて）`;
+  } else {
+    banner.className = 'confirm-banner pending';
+    banner.textContent = `当番表作成者の確認待ちです（確認済み ${confirmed}／${total}件）`;
+  }
+}
+
+function toggleDate(dateStr) {
+  // 締切を過ぎた月は変更不可（タップしても何もしない）
+  if (isMonthLocked(calYear, calMonth)) return;
+  if (registeredDates.has(dateStr)) {
+    if (pendingRemove.has(dateStr)) pendingRemove.delete(dateStr);
+    else pendingRemove.add(dateStr);
+  } else {
+    if (pendingAdd.has(dateStr)) pendingAdd.delete(dateStr);
+    else pendingAdd.add(dateStr);
+  }
+  renderCalendar();
+}
+
+function updateSaveButtonState() {
+  const total = pendingAdd.size + pendingRemove.size;
+  document.getElementById('save-btn').disabled = total === 0;
+}
+
+async function shiftCalMonth(delta) {
+  if (pendingAdd.size + pendingRemove.size > 0) {
+    if (!confirm('保存されていない変更があります。移動すると変更内容は破棄されます。よろしいですか？')) return;
+  }
+  pendingAdd.clear();
+  pendingRemove.clear();
+  calMonth += delta;
+  if (calMonth < 1) { calMonth = 12; calYear--; }
+  if (calMonth > 12) { calMonth = 1; calYear++; }
+  showMsg('save-msg', '', '');
+  await renderCalendar();
+}
+
+function clearPending() {
+  pendingAdd.clear();
+  pendingRemove.clear();
+  showMsg('save-msg', '', '');
+  renderCalendar();
+}
+
+let isSaving = false;
+async function saveChanges() {
+  if (isSaving) return;
+  if (pendingAdd.size === 0 && pendingRemove.size === 0) return;
+  // 締切後（ページを開いたまま締切時刻を過ぎた場合など）は保存させない
+  if (isMonthLocked(calYear, calMonth)) {
+    pendingAdd.clear(); pendingRemove.clear();
+    await renderCalendar();
+    showMsg('save-msg', 'この月の支障日の受付は終了しました。変更は当番表作成者にご連絡ください。', 'error');
+    return;
+  }
+  isSaving = true;
+  document.getElementById('save-btn').disabled = true;
+  showMsg('save-msg', '<span class="spinner" style="border-color:rgba(0,0,0,0.2);border-top-color:var(--accent-dark)"></span> 保存中...', 'info');
+
+  try {
+    if (pendingAdd.size > 0) {
+      const rows = [...pendingAdd].map(date => ({ member_id: currentMember.id, blocked_date: date, reason: null }));
+      const { error } = await sbClient.from('unavailable_dates').upsert(rows, { onConflict: 'member_id,blocked_date' });
+      if (error) throw error;
+    }
+    if (pendingRemove.size > 0) {
+      const { error } = await sbClient.from('unavailable_dates')
+        .delete()
+        .eq('member_id', currentMember.id)
+        .in('blocked_date', [...pendingRemove]);
+      if (error) throw error;
+    }
+    const addedCount = pendingAdd.size, removedCount = pendingRemove.size;
+    pendingAdd.clear();
+    pendingRemove.clear();
+    await renderCalendar();
+    const parts = [];
+    if (addedCount) parts.push(`${addedCount}件登録`);
+    if (removedCount) parts.push(`${removedCount}件取消`);
+    showMsg('save-msg', parts.join('・') + ' しました ✓', 'success');
+  } catch (e) {
+    showMsg('save-msg', '保存に失敗しました: ' + e.message, 'error');
+  } finally {
+    isSaving = false;
+    updateSaveButtonState();
+  }
+}
+
+// =============================================
+// タブ切り替え（支障日入力／当番表）
+// =============================================
+function switchTab(tab) {
+  const isInput = tab === 'input';
+  document.getElementById('tab-btn-input').classList.toggle('active', isInput);
+  document.getElementById('tab-btn-roster').classList.toggle('active', !isInput);
+  document.getElementById('tab-panel-input').classList.toggle('hidden', !isInput);
+  document.getElementById('tab-panel-roster').classList.toggle('hidden', isInput);
+  if (!isInput) {
+    // データの再取得は初回のみ。ただし文字サイズの再調整は毎回行う（画面回転などに対応するため）
+    if (!rosterLoadedOnce) {
+      rosterLoadedOnce = true;
+      renderRosterCalendar();
+    } else {
+      fitDutyNameSizes();
+    }
+  }
+}
+
+// =============================================
+// 当番表（読み取り専用カレンダー）
+// =============================================
+async function fetchRosterForRange(dayList) {
+  const first = dayList[0], last = dayList[dayList.length - 1];
+  const startStr = `${first.y}-${pad2(first.m)}-${pad2(first.d)}`;
+  const endStr = `${last.y}-${pad2(last.m)}-${pad2(last.d)}`;
+  const map = {};
+  try {
+    const { data, error } = await sbClient
+      .from('annual_roster')
+      .select('duty_date, notes, member_id, members(name)')
+      .gte('duty_date', startStr)
+      .lte('duty_date', endStr);
+    if (!error) (data || []).forEach(r => { map[r.duty_date] = r; });
+  } catch (e) { /* 取得できない場合は空のまま表示 */ }
+  return map;
+}
+
+async function renderRosterCalendar() {
+  const dayList = getCalendarDayList(rosterYear, rosterMonth);
+  document.getElementById('roster-month-label').textContent = getMonthLabel(rosterYear, rosterMonth);
+  document.getElementById('roster-month-sub-note').textContent = getMonthSubNote(rosterYear, rosterMonth);
+  const dowRow = document.getElementById('roster-dow-row');
+  dowRow.innerHTML = DOW_JP.map((d, i) => `<th style="${i===0?'color:#c0392b':i===6?'color:var(--info)':''}">${d}</th>`).join('');
+
+  const loadingEl = document.getElementById('roster-loading');
+  loadingEl.textContent = '読み込み中...';
+  const rosterMap = await fetchRosterForRange(dayList);
+  loadingEl.textContent = '';
+
+  const first = dayList[0];
+  const firstDay = new Date(first.y, first.m - 1, first.d).getDay();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let html = '<tr>';
+  for (let i = 0; i < firstDay; i++) html += '<td class="empty-cell"></td>';
+  dayList.forEach((day, idx) => {
+    const dateStr = `${day.y}-${pad2(day.m)}-${pad2(day.d)}`;
+    const dow = (firstDay + idx) % 7;
+    const isHol = !!holidays[dateStr];
+    const isNextMonth = day.m !== rosterMonth;
+    const entry = rosterMap[dateStr];
+    const dutyName = entry && entry.members ? entry.members.name : '';
+    const isMyDuty = !!(entry && currentMember && entry.member_id === currentMember.id);
+
+    let cls = 'day-cell roster-cell';
+    if (dow === 0 || isHol) cls += ' sunday-col';
+    else if (dow === 6) cls += ' saturday-col';
+    if (dateStr === todayStr) cls += ' today-cell';
+    if (isNextMonth) cls += ' next-month-day';
+    if (isMyDuty) cls += ' my-duty';
+
+    const holBadge = isHol ? '<span class="hol-badge" style="margin-top:0">休日</span>' : '';
+    const dayLabel = isNextMonth ? `${day.m}/${day.d}` : String(day.d);
+    const nameLongCls = dutyName.length >= 5 ? ' name-long' : '';
+    const nameHtml = dutyName ? `<span class="duty-name${nameLongCls}">${dutyName}</span>` : '';
+    const dayRowHtml = `<div style="display:flex;align-items:center;justify-content:center;gap:2px;line-height:1">
+      <span class="day-num">${dayLabel}</span>${holBadge}
+    </div>`;
+    html += `<td><div class="${cls}">${dayRowHtml}${nameHtml}</div></td>`;
+    if ((firstDay + idx + 1) % 7 === 0 && idx < dayList.length - 1) html += '</tr><tr>';
+  });
+  html += '</tr>';
+  document.getElementById('roster-cal-body').innerHTML = html;
+  fitDutyNameSizes();
+}
+
+// 実際に描画された1マスの幅を測り、名前の文字サイズをその幅に合わせて自動計算する。
+// （画面幅の目安値に頼らないため、端末やブラウザのズーム状態が違っても確実に1行に収まる）
+function fitDutyNameSizes() {
+  const cellEl = document.querySelector('#roster-cal-body td:not(.empty-cell) .day-cell');
+  if (!cellEl) return;
+  const cellWidth = cellEl.getBoundingClientRect().width;
+  if (!cellWidth) return;
+  // 4文字までの名前・5文字以上の名前で、文字幅に対する比率を分けて計算
+  const normalSize = Math.max(6, Math.min(11, cellWidth * 0.205));
+  const longSize = Math.max(5, Math.min(9, cellWidth * 0.165));
+  document.querySelectorAll('#roster-cal-body .duty-name:not(.name-long)').forEach(el => {
+    el.style.fontSize = normalSize.toFixed(1) + 'px';
+  });
+  document.querySelectorAll('#roster-cal-body .duty-name.name-long').forEach(el => {
+    el.style.fontSize = longSize.toFixed(1) + 'px';
+  });
+}
+
+function shiftRosterMonth(delta) {
+  rosterMonth += delta;
+  if (rosterMonth < 1) { rosterMonth = 12; rosterYear--; }
+  if (rosterMonth > 12) { rosterMonth = 1; rosterYear++; }
+  renderRosterCalendar();
+}
+
+// =============================================
+// 起動時：この端末を記憶している場合は自動ログイン
+// =============================================
+// 画面回転・ウィンドウサイズ変更時にも、当番表タブが表示中であれば文字サイズを再調整する
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    const rosterPanel = document.getElementById('tab-panel-roster');
+    if (rosterPanel && !rosterPanel.classList.contains('hidden')) fitDutyNameSizes();
+  }, 150);
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+  let remembered = null;
+  try { remembered = localStorage.getItem(REMEMBER_KEY); } catch (e) {}
+  if (remembered && normalizeCode(remembered) != null) {
+    showMsg('login-msg', '<span class="spinner" style="border-color:rgba(0,0,0,0.2);border-top-color:var(--accent-dark)"></span> 自動ログイン中...', 'info');
+    try {
+      const matches = await findMembersByCode(remembered);
+      if (matches.length === 1) {
+        document.getElementById('remember-me').checked = true;
+        await enterAsMember(matches[0].member, matches[0].token);
+        return;
+      } else if (matches.length > 1) {
+        showPicker(matches);
+        return;
+      } else {
+        showMsg('login-msg', '', '');
+      }
+    } catch (e) {
+      showMsg('login-msg', '', '');
+    }
+  }
+  document.getElementById('login-code').focus();
+});
+</script>
+</body>
+</html>
