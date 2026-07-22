@@ -2973,7 +2973,7 @@ function printCalendar() {
     const phone = mInfo ? (mInfo.phone || mInfo.phone_number || mInfo.tel || '') : '';
     const subLine = [dept, phone].filter(Boolean).join('　');
     const subFontSize = subLine.length <= 12 ? 10 : subLine.length <= 16 ? 9 : subLine.length <= 20 ? 8 : subLine.length <= 25 ? 7 : 6;
-    const noteCellHtml = note ? `<div style="font-size:9px;color:#333;line-height:1.3;word-break:break-all;">📝 ${note}</div>` : '';
+    const noteCellHtml = note ? `<div style="font-size:9px;color:#333;line-height:1.3;word-break:break-all;">${note}</div>` : '';
 
     const rowHtml = `<tr>
       <td style="width:48px;text-align:center;font-size:14px;font-weight:700;border:1px solid #555;padding:2px;white-space:nowrap;${dayBg}">${dowLabel}</td>
