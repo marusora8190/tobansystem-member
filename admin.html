@@ -793,22 +793,14 @@
     </div>
     <div id="page-nye-duty-record" class="page">
       <div class="section-title">年末年始当番記録</div>
-      <div class="alert alert-info">選択した年度（12月27日〜1月4日）に、どなたが当番であったかを日付ごとに確認できる記録ページです。ここは確認専用で、割り当ての変更は「年末年始当番予定」ページから行ってください。</div>
+      <div class="alert alert-info">過去3年度分と、来年度（未来）分をあわせた4年度を、日付ごとにまとめて確認できる記録ページです。ここは確認専用で、割り当ての変更は「年末年始当番予定」ページから行ってください。</div>
       <div class="card">
-        <div class="card-title">表示する年度</div>
-        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-          <div class="form-group" style="width:320px">
-            <label>年末年始シーズン</label>
-            <select id="nye-record-year-select" onchange="renderNyeDutyRecordPage()"></select>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">日付ごとの当番者（選択年度）</div>
+        <div class="card-title">年度別 当番一覧（過去3年度＋来年度）</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">日曜・祝日にあたるセルは赤字で表示しています。</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th style="width:160px">日付</th><th>当番者</th></tr></thead>
-            <tbody id="nye-record-body"><tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+            <thead><tr id="nye-record-head"></tr></thead>
+            <tbody id="nye-record-body"><tr><td style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1585,34 +1577,44 @@ async function onNyeAssignCheckboxChange(el) {
 }
 
 // 「年末年始当番記録」ページ：選択年度の12/27〜1/4の日付ごとに、当番者名を確認専用で表示する。
-async function renderNyeDutyRecordPage() {
-  const body = document.getElementById('nye-record-body');
-  if (!body) return;
-  body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
+// 記録ページで表示する4年度分（過去3年度＋来年度＝直近シーズンを基準に3年前〜1年分）
+function getNyeRecordSeasonYears() {
+  const base = getDefaultNyeSeasonYear();
+  return [base - 3, base - 2, base - 1, base];
+}
 
-  populateNyeYearSelectFor('nye-record-year-select');
-  const seasonYear = parseInt(document.getElementById('nye-record-year-select')?.value) || getDefaultNyeSeasonYear();
+async function renderNyeDutyRecordPage() {
+  const head = document.getElementById('nye-record-head');
+  const body = document.getElementById('nye-record-body');
+  if (!head || !body) return;
+  const seasonYears = getNyeRecordSeasonYears();
+  const colspan = seasonYears.length + 1;
+  body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
 
   try {
     await loadSchedules();
   } catch (e) {
-    body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
     return;
   }
 
-  const dates = nyeSeasonDates(seasonYear);
-  body.innerHTML = dates.map(dateStr => {
-    const dow = new Date(dateStr + 'T00:00:00').getDay();
-    const isHol = dow === 0 || !!holidays[dateStr];
-    const [, mo, da] = dateStr.split('-');
-    const label = `${parseInt(mo)}/${parseInt(da)}(${DOW_JP[dow]})`;
-    const labelStyle = isHol ? 'color:var(--danger);font-weight:600' : '';
-    const rec = schedules[dateStr];
-    const name = rec && rec.member_id != null ? (allMembersById[rec.member_id]?.name || `ID:${rec.member_id}`) : '未定';
-    return `<tr>
-      <td style="${labelStyle}">${label}</td>
-      <td>${name}</td>
-    </tr>`;
+  head.innerHTML = `<th style="white-space:nowrap">日付</th>` + seasonYears.map(sy => `<th style="text-align:center;white-space:nowrap">${sy}年度</th>`).join('');
+
+  // 月日部分（12/27〜1/4）は全年度共通。曜日・祝日は年度ごとに異なるため、セル単位で赤字表示する。
+  const monthDays = ['12-27', '12-28', '12-29', '12-30', '12-31', '01-01', '01-02', '01-03', '01-04'];
+  body.innerHTML = monthDays.map(md => {
+    const [mo, da] = md.split('-').map(Number);
+    const cells = seasonYears.map(sy => {
+      const y = md.startsWith('12') ? sy : sy + 1;
+      const dateStr = `${y}-${md}`;
+      const dow = new Date(dateStr + 'T00:00:00').getDay();
+      const isHol = dow === 0 || !!holidays[dateStr];
+      const style = isHol ? 'color:var(--danger);font-weight:600' : '';
+      const rec = schedules[dateStr];
+      const name = rec && rec.member_id != null ? (allMembersById[rec.member_id]?.name || `ID:${rec.member_id}`) : '未定';
+      return `<td style="text-align:center;${style}">${name}</td>`;
+    }).join('');
+    return `<tr><td style="white-space:nowrap">${mo}/${da}</td>${cells}</tr>`;
   }).join('');
 }
 
