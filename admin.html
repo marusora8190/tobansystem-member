@@ -754,20 +754,29 @@
     </div>
     <div id="page-nye-duty" class="page">
       <div class="section-title">年末年始当番予定（12/27〜1/4）</div>
-      <div class="alert alert-info">在籍中の詰員には、加入から辞退（引退）までの間に、年末年始期間（12月27日〜1月4日）の当番に最低3回は当たっていただく方針です。ここでは、各メンバーの通算回数（システム導入前の経験回数＋このシステムで記録された回数）と、達成状況を確認できます。実際の当番の割り当ては「当番表作成」「割当確認」ページで行ってください。</div>
+      <div class="alert alert-info">在籍中の詰員には、加入から辞退（引退）までの間に、年末年始期間（12月27日〜1月4日）の当番に最低3回は当たっていただく方針です。ここでは、各メンバーの通算回数（システム導入前の経験回数＋このシステムで記録された回数）と、達成状況を確認できます。名前の横のチェックボックスから、選択中の年度の当番日をその場で割り当てることもできます。</div>
       <div class="card">
-        <div class="card-title">メンバーごとの通算回数</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">「導入前の経験回数」は、本システム導入（2026年）より前に年末年始当番を経験した回数を、分かる範囲で入力してください（入力するとすぐに保存されます）。「システム記録分」は、本システムに記録されている年末年始期間の当番実績から自動集計されます。通算回数が少ない方から順に並んでいます。</p>
+        <div class="card-title">表示・割り当て対象の年度</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="width:200px">
+            <label>年末年始シーズン</label>
+            <select id="nye-year-select" onchange="renderNyeDutyPage()"></select>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">メンバーごとの通算回数・当番割り当て</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">「当番日を選択」のチェックボックスは、上で選んだ年度の12/27〜翌1/4の各日です。チェックすると、その日の当番としてすぐに保存されます（すでに他の人が割り当てられている日をチェックすると、割り当てが上書きされます）。「導入前の記録」は、本システム導入（2026年）より前に年末年始当番を経験した「年＋日付」を1件ずつ追加できます（日付が分からない場合は「日付不明」でも構いません）。追加した記録の件数が、そのまま導入前の回数として通算回数に加算されます。「システム記録分」「通算回数」は、年度に関わらず、これまでの全期間の実績です。詰員名簿と同じ並び順で表示しています。</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>氏名</th><th>部署</th><th>導入前の経験回数</th><th>システム記録分</th><th>通算回数</th><th>達成状況</th></tr></thead>
+            <thead><tr><th>氏名</th><th>当番日を選択（12/27〜翌1/4）</th><th>導入前の記録（年・日付）</th><th>システム記録分</th><th>通算回数</th><th>達成状況</th></tr></thead>
             <tbody id="nye-duty-body"><tr><td colspan="6" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
         </div>
       </div>
       <div class="card">
         <div class="card-title">年ごとの当番実績（参考）</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">本システムに記録されている、年末年始期間（12/27〜翌1/4）の当番実績です。</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">本システムに記録されている、年末年始期間（12/27〜翌1/4）の当番実績を、年度ごとに一覧表示します。</p>
         <div id="nye-duty-history-wrap" style="overflow-x:auto;display:flex;gap:12px;padding-bottom:8px"></div>
       </div>
     </div>
@@ -1239,9 +1248,11 @@ async function updateMemberField(id, field, value) {
 }
 
 // ================================================================
-// 年末年始当番予定（12/27〜1/4の当番実績・通算回数の集計）
+// 年末年始当番予定（12/27〜1/4の当番実績・通算回数の集計・割り当て）
 // ================================================================
 const NYE_TARGET_COUNT = 3;
+const NYE_YEAR_MIN = 2025;
+const NYE_YEAR_MAX = 2050;
 
 function isNyeWindowDate(dateStr) {
   const parts = dateStr.split('-');
@@ -1257,10 +1268,100 @@ function nyeSeasonYear(dateStr) {
   return m === 1 ? y - 1 : y;
 }
 
-async function fetchNyeRosterRows() {
-  const { data, error } = await sbClient.from('annual_roster').select('duty_date, member_id').not('member_id', 'is', null);
+// 指定した「シーズン開始年」の12/27〜翌1/4、9日分の日付文字列を返す
+function nyeSeasonDates(seasonYear) {
+  const dates = [];
+  for (let d = 27; d <= 31; d++) dates.push(`${seasonYear}-12-${String(d).padStart(2, '0')}`);
+  for (let d = 1; d <= 4; d++) dates.push(`${seasonYear + 1}-01-${String(d).padStart(2, '0')}`);
+  return dates;
+}
+
+function getDefaultNyeSeasonYear() {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth() + 1, d = now.getDate();
+  if (m === 1 && d <= 4) return y - 1; // 1/1〜1/4はまだ前年12月から続くシーズン扱い
+  return y;
+}
+
+// annual_rosterのキャッシュ（schedules）から、年末年始期間内かつ割り当て済みの行だけを取り出す
+function getNyeWindowRowsFromCache() {
+  return Object.keys(schedules)
+    .filter(isNyeWindowDate)
+    .map(dateStr => ({ duty_date: dateStr, member_id: schedules[dateStr]?.member_id }))
+    .filter(r => r.member_id != null);
+}
+
+function populateNyeYearSelect() {
+  const sel = document.getElementById('nye-year-select');
+  if (!sel) return;
+  if (sel.options.length) return; // 一度作ったら選択状態を維持する
+  const opts = [];
+  for (let y = NYE_YEAR_MIN; y <= NYE_YEAR_MAX; y++) {
+    opts.push(`<option value="${y}">${y}年末〜${y + 1}年始（12/27〜翌1/4）</option>`);
+  }
+  sel.innerHTML = opts.join('');
+  sel.value = String(getDefaultNyeSeasonYear());
+}
+
+let nyePastRecordsByMember = {};
+
+async function loadNyePastRecords() {
+  const { data, error } = await sbClient.from('nye_duty_past_records').select('*');
   if (error) throw error;
-  return (data || []).filter(r => isNyeWindowDate(r.duty_date));
+  nyePastRecordsByMember = {};
+  (data || []).forEach(r => {
+    (nyePastRecordsByMember[r.member_id] = nyePastRecordsByMember[r.member_id] || []).push(r);
+  });
+}
+
+function nyeMonthDayLabel(md) {
+  if (!md) return '日付不明';
+  const [mo, da] = md.split('-').map(Number);
+  return `${mo}/${da}`;
+}
+
+const NYE_MONTH_DAY_OPTIONS = ['12-27','12-28','12-29','12-30','12-31','01-01','01-02','01-03','01-04'];
+
+function buildNyePastCell(memberId) {
+  const recs = (nyePastRecordsByMember[memberId] || []).slice().sort((a, b) => a.season_year - b.season_year);
+  const chips = recs.map(r =>
+    `<span class="badge badge-blue" style="cursor:pointer" title="クリックで削除" onclick="deleteNyePastRecord(${r.id})">${r.season_year}年 ${nyeMonthDayLabel(r.month_day)} ✕</span>`
+  ).join(' ');
+  const dateOptions = NYE_MONTH_DAY_OPTIONS.map(md => `<option value="${md}">${nyeMonthDayLabel(md)}</option>`).join('')
+    + `<option value="">日付不明</option>`;
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${chips || '<span style="color:var(--text-hint);font-size:11px">記録なし</span>'}</div>
+    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+      <input type="number" id="nye-past-year-${memberId}" placeholder="年" style="width:60px;font-size:11px;padding:2px 4px" min="1980" max="2099">
+      <select id="nye-past-date-${memberId}" style="width:88px;font-size:11px;padding:2px 4px">${dateOptions}</select>
+      <button class="btn btn-sm" onclick="addNyePastRecord('${memberId}')">+ 追加</button>
+    </div>`;
+}
+
+async function addNyePastRecord(memberId) {
+  const yearInput = document.getElementById(`nye-past-year-${memberId}`);
+  const dateSelect = document.getElementById(`nye-past-date-${memberId}`);
+  const year = parseInt(yearInput?.value);
+  if (!year || year < 1980 || year > 2099) { alert('年を正しく入力してください（例：2020）'); return; }
+  const monthDay = dateSelect?.value || null;
+  try {
+    const { error } = await sbClient.from('nye_duty_past_records').insert({ member_id: Number(memberId), season_year: year, month_day: monthDay });
+    if (error) throw error;
+  } catch (e) {
+    alert('記録の追加に失敗しました: ' + e.message);
+  }
+  await renderNyeDutyPage();
+}
+
+async function deleteNyePastRecord(recordId) {
+  if (!confirm('この記録を削除しますか？')) return;
+  try {
+    const { error } = await sbClient.from('nye_duty_past_records').delete().eq('id', recordId);
+    if (error) throw error;
+  } catch (e) {
+    alert('削除に失敗しました: ' + e.message);
+  }
+  await renderNyeDutyPage();
 }
 
 async function renderNyeDutyPage() {
@@ -1270,13 +1371,17 @@ async function renderNyeDutyPage() {
   body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
   if (histWrap) histWrap.innerHTML = '';
 
-  let rows;
+  populateNyeYearSelect();
+  const seasonYear = parseInt(document.getElementById('nye-year-select')?.value) || getDefaultNyeSeasonYear();
+
   try {
-    rows = await fetchNyeRosterRows();
+    await loadSchedules();
+    await loadNyePastRecords();
   } catch (e) {
     body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
     return;
   }
+  const rows = getNyeWindowRowsFromCache();
 
   if (!members.length) {
     body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-hint)">在籍中のメンバーがいません</td></tr>`;
@@ -1284,26 +1389,23 @@ async function renderNyeDutyPage() {
     return;
   }
 
-  // メンバーごとのシステム記録回数（年末年始期間内の当番日数をそのままカウント）
+  // メンバーごとのシステム記録回数（年度に関わらず、年末年始期間内の当番日数の全期間合計）
   const sysCountByMember = {};
   rows.forEach(r => { sysCountByMember[r.member_id] = (sysCountByMember[r.member_id] || 0) + 1; });
 
-  const rowsData = members.map(m => {
-    const past = parseInt(m.nye_duty_past_count) || 0;
+  // 詰員名簿と同じ並び順（membersは既にstaff_id順）でそのまま表示する
+  body.innerHTML = members.map(m => {
+    const past = (nyePastRecordsByMember[m.id] || []).length;
     const sys = sysCountByMember[m.id] || 0;
-    return { m, past, sys, total: past + sys };
-  });
-  rowsData.sort((a, b) => a.total - b.total || String(a.m.name).localeCompare(String(b.m.name), 'ja'));
-
-  body.innerHTML = rowsData.map(({ m, past, sys, total }) => {
+    const total = past + sys;
     const achieved = total >= NYE_TARGET_COUNT;
     const badge = achieved
       ? `<span class="badge badge-green">✓ 達成</span>`
       : `<span class="badge badge-red">あと${NYE_TARGET_COUNT - total}回</span>`;
     return `<tr>
-      <td>${m.name}</td>
-      <td>${m.department || ''}</td>
-      <td style="text-align:center"><input type="number" min="0" style="width:64px;text-align:center" value="${past}" onchange="updateNyePastCount('${m.id}', this.value)"></td>
+      <td style="white-space:nowrap">${m.name}</td>
+      <td>${buildNyeDateCheckboxes(m.id, seasonYear)}</td>
+      <td>${buildNyePastCell(m.id)}</td>
       <td style="text-align:center">${sys}</td>
       <td style="text-align:center;font-weight:600">${total}</td>
       <td style="text-align:center">${badge}</td>
@@ -1313,16 +1415,43 @@ async function renderNyeDutyPage() {
   renderNyeHistoryTables(rows);
 }
 
-async function updateNyePastCount(id, value) {
-  const n = Math.max(0, parseInt(value) || 0);
+function buildNyeDateCheckboxes(memberId, seasonYear) {
+  const dates = nyeSeasonDates(seasonYear);
+  return dates.map(dateStr => {
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = dow === 0 || !!holidays[dateStr];
+    const rec = schedules[dateStr];
+    const checked = rec && rec.member_id === memberId ? 'checked' : '';
+    const otherName = (rec && rec.member_id && rec.member_id !== memberId)
+      ? (allMembersById[rec.member_id]?.name || members.find(x => x.id == rec.member_id)?.name || '') : '';
+    const [, mo, da] = dateStr.split('-');
+    const label = `${parseInt(mo)}/${parseInt(da)}`;
+    const labelStyle = isHol ? 'color:var(--danger)' : '';
+    return `<label style="display:inline-flex;align-items:center;gap:2px;font-size:11px;margin-right:6px;white-space:nowrap;${labelStyle}" title="${otherName ? otherName + 'が割当済み（チェックすると上書きされます）' : ''}">
+      <input type="checkbox" data-mid="${memberId}" data-date="${dateStr}" ${checked} onchange="onNyeDateToggle(this)" style="width:13px;height:13px;cursor:pointer;accent-color:var(--accent)">${label}
+    </label>`;
+  }).join('');
+}
+
+async function onNyeDateToggle(el) {
+  const mid = Number(el.dataset.mid);
+  const dateStr = el.dataset.date;
+  el.disabled = true;
   try {
-    const { error } = await sbClient.rpc('admin_update_member', { p_id: id, p_patch: { nye_duty_past_count: n } });
+    const existing = schedules[dateStr] || {};
+    const d = new Date(dateStr + 'T00:00:00');
+    const isHol = existing.hasOwnProperty('is_holiday') ? existing.is_holiday : (d.getDay() === 0 || !!holidays[dateStr]);
+    const newMemberId = el.checked ? mid : (existing.member_id === mid ? null : existing.member_id);
+    const { error } = await sbClient.from('annual_roster').upsert({
+      duty_date: dateStr,
+      member_id: newMemberId,
+      notes: existing.notes ?? null,
+      is_holiday: isHol,
+      locked: existing.locked || false,
+    }, { onConflict: 'duty_date' });
     if (error) throw error;
-    const m = members.find(x => x.id == id);
-    if (m) m.nye_duty_past_count = n;
-    if (allMembersById[id]) allMembersById[id].nye_duty_past_count = n;
   } catch (e) {
-    alert('更新に失敗しました: ' + e.message);
+    alert('割り当ての更新に失敗しました: ' + e.message);
   }
   await renderNyeDutyPage();
 }
