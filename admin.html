@@ -396,6 +396,7 @@
     <div class="sidebar-item" onclick="showPage('records')">割当確認</div>
     <div class="sidebar-item" onclick="showPage('holidays')">日曜祝日等管理</div>
     <div class="sidebar-item" onclick="showPage('nye-duty')">年末年始当番予定</div>
+    <div class="sidebar-item" onclick="showPage('nye-duty-record')">年末年始当番記録</div>
     <div class="sidebar-item" onclick="showPage('chotome')">本部祭典日・本部お勤め時間</div>
   </nav>
 
@@ -758,11 +759,16 @@
       <div class="card">
         <div class="card-title">表示・割り当て対象の年度</div>
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-          <div class="form-group" style="width:200px">
+          <div class="form-group" style="width:320px">
             <label>年末年始シーズン</label>
             <select id="nye-year-select" onchange="renderNyeDutyPage()"></select>
           </div>
         </div>
+      </div>
+      <div class="card">
+        <div class="card-title">候補者選び（選択年度）</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">まず、この年度の年末年始当番（12/27〜1/4）を担当してもらう候補者にチェックを入れ、「人選済み」ボタンを押してください。確定すると、下の「当番割り当て」欄にはチェックした人だけが表示されます。後から人選をやり直したい場合は「候補者を編集」ボタンで戻れます。</p>
+        <div id="nye-candidates-wrap"><div style="color:var(--text-hint)">読み込み中...</div></div>
       </div>
       <div class="card">
         <div class="card-title">当番割り当て（選択年度）</div>
@@ -781,6 +787,28 @@
           <table>
             <thead><tr><th>氏名</th><th>導入前の記録（年・日付）</th><th>システム記録分</th><th>通算回数</th></tr></thead>
             <tbody id="nye-duty-body"><tr><td colspan="4" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="page-nye-duty-record" class="page">
+      <div class="section-title">年末年始当番記録</div>
+      <div class="alert alert-info">選択した年度（12月27日〜1月4日）に、どなたが当番であったかを日付ごとに確認できる記録ページです。ここは確認専用で、割り当ての変更は「年末年始当番予定」ページから行ってください。</div>
+      <div class="card">
+        <div class="card-title">表示する年度</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="width:320px">
+            <label>年末年始シーズン</label>
+            <select id="nye-record-year-select" onchange="renderNyeDutyRecordPage()"></select>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">日付ごとの当番者（選択年度）</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th style="width:160px">日付</th><th>当番者</th></tr></thead>
+            <tbody id="nye-record-body"><tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1296,8 +1324,8 @@ function getNyeWindowRowsFromCache() {
     .filter(r => r.member_id != null);
 }
 
-function populateNyeYearSelect() {
-  const sel = document.getElementById('nye-year-select');
+function populateNyeYearSelectFor(selId) {
+  const sel = document.getElementById(selId);
   if (!sel) return;
   if (sel.options.length) return; // 一度作ったら選択状態を維持する
   const opts = [];
@@ -1306,6 +1334,83 @@ function populateNyeYearSelect() {
   }
   sel.innerHTML = opts.join('');
   sel.value = String(getDefaultNyeSeasonYear());
+}
+
+function populateNyeYearSelect() {
+  populateNyeYearSelectFor('nye-year-select');
+}
+
+let nyeCandidatesBySeason = {};
+let nyeCandidateEditMode = {};
+
+async function loadNyeCandidates() {
+  const { data, error } = await sbClient.from('nye_duty_candidates').select('*');
+  if (error) throw error;
+  nyeCandidatesBySeason = {};
+  (data || []).forEach(r => {
+    (nyeCandidatesBySeason[r.season_year] = nyeCandidatesBySeason[r.season_year] || []).push(r.member_id);
+  });
+}
+
+function isNyeCandidateEditMode(seasonYear) {
+  if (nyeCandidateEditMode.hasOwnProperty(seasonYear)) return nyeCandidateEditMode[seasonYear];
+  const saved = nyeCandidatesBySeason[seasonYear];
+  return !(saved && saved.length > 0);
+}
+
+// 候補者選び（選択年度）欄の描画。未確定時はチェックボックス一覧＋「人選済み」ボタン、
+// 確定済みの場合は選ばれた候補者名の一覧＋「候補者を編集」ボタンを表示する。
+function renderNyeCandidatesSection(seasonYear) {
+  const wrap = document.getElementById('nye-candidates-wrap');
+  if (!wrap) return;
+  if (!members.length) {
+    wrap.innerHTML = `<div style="color:var(--text-hint)">在籍中のメンバーがいません</div>`;
+    return;
+  }
+  const saved = nyeCandidatesBySeason[seasonYear] || [];
+  if (isNyeCandidateEditMode(seasonYear)) {
+    const savedSet = new Set(saved);
+    const checkboxesHtml = members.map(m => `
+      <label style="display:inline-flex;align-items:center;gap:4px;margin:2px 14px 2px 0;white-space:nowrap">
+        <input type="checkbox" data-mid="${m.id}" ${savedSet.has(m.id) ? 'checked' : ''}>${m.name}
+      </label>`).join('');
+    wrap.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;margin-bottom:8px">${checkboxesHtml}</div>
+      <button class="btn btn-primary btn-sm" onclick="confirmNyeCandidates(${seasonYear})">人選済み</button>`;
+  } else {
+    const names = members.filter(m => saved.includes(m.id)).map(m => m.name);
+    wrap.innerHTML = `
+      <div style="margin-bottom:8px">${names.length
+        ? names.map(n => `<span class="badge badge-blue" style="margin:2px 4px 2px 0">${n}</span>`).join('')
+        : '<span style="color:var(--text-hint)">候補者が選択されていません</span>'}</div>
+      <button class="btn btn-sm" onclick="editNyeCandidates(${seasonYear})">候補者を編集</button>`;
+  }
+}
+
+function editNyeCandidates(seasonYear) {
+  nyeCandidateEditMode[seasonYear] = true;
+  renderNyeCandidatesSection(seasonYear);
+}
+
+async function confirmNyeCandidates(seasonYear) {
+  const wrap = document.getElementById('nye-candidates-wrap');
+  const checkedIds = Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(el => Number(el.dataset.mid));
+  if (!checkedIds.length && !confirm('候補者を1人も選んでいません。このまま人選済みにしますか？')) return;
+  try {
+    const { error: delErr } = await sbClient.from('nye_duty_candidates').delete().eq('season_year', seasonYear);
+    if (delErr) throw delErr;
+    if (checkedIds.length) {
+      const { error: insErr } = await sbClient.from('nye_duty_candidates').insert(
+        checkedIds.map(mid => ({ season_year: seasonYear, member_id: mid }))
+      );
+      if (insErr) throw insErr;
+    }
+  } catch (e) {
+    alert('候補者の保存に失敗しました: ' + e.message);
+    return;
+  }
+  nyeCandidateEditMode[seasonYear] = false;
+  await renderNyeDutyPage();
 }
 
 let nyePastRecordsByMember = {};
@@ -1380,12 +1485,14 @@ async function renderNyeDutyPage() {
   try {
     await loadSchedules();
     await loadNyePastRecords();
+    await loadNyeCandidates();
   } catch (e) {
     body.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
     return;
   }
   const rows = getNyeWindowRowsFromCache();
 
+  renderNyeCandidatesSection(seasonYear);
   renderNyeAssignTable(seasonYear);
 
   if (!members.length) {
@@ -1433,8 +1540,17 @@ function renderNyeAssignTable(seasonYear) {
     return;
   }
 
+  // 候補者が確定している年度は、候補者に絞り込んで表示する（未確定の場合は在籍中の全メンバーを表示）
+  const candidateIds = nyeCandidatesBySeason[seasonYear];
+  const hasCandidates = Array.isArray(candidateIds) && candidateIds.length > 0;
+  if (Array.isArray(candidateIds) && candidateIds.length === 0) {
+    body.innerHTML = `<tr><td colspan="${dates.length + 1}" style="text-align:center;color:var(--text-hint)">候補者が選択されていません。上の「候補者選び」欄で人選してください。</td></tr>`;
+    return;
+  }
+  const assignMembers = hasCandidates ? members.filter(m => candidateIds.includes(m.id)) : members;
+
   // 詰員名簿と同じ並び順（membersは既にstaff_id順）でそのまま表示する
-  body.innerHTML = members.map(m => {
+  body.innerHTML = assignMembers.map(m => {
     const cells = dates.map(dateStr => {
       const rec = schedules[dateStr];
       const checked = !!(rec && rec.member_id === m.id);
@@ -1466,6 +1582,38 @@ async function onNyeAssignCheckboxChange(el) {
     alert('割り当ての更新に失敗しました: ' + e.message);
   }
   await renderNyeDutyPage();
+}
+
+// 「年末年始当番記録」ページ：選択年度の12/27〜1/4の日付ごとに、当番者名を確認専用で表示する。
+async function renderNyeDutyRecordPage() {
+  const body = document.getElementById('nye-record-body');
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
+
+  populateNyeYearSelectFor('nye-record-year-select');
+  const seasonYear = parseInt(document.getElementById('nye-record-year-select')?.value) || getDefaultNyeSeasonYear();
+
+  try {
+    await loadSchedules();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
+    return;
+  }
+
+  const dates = nyeSeasonDates(seasonYear);
+  body.innerHTML = dates.map(dateStr => {
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    const isHol = dow === 0 || !!holidays[dateStr];
+    const [, mo, da] = dateStr.split('-');
+    const label = `${parseInt(mo)}/${parseInt(da)}(${DOW_JP[dow]})`;
+    const labelStyle = isHol ? 'color:var(--danger);font-weight:600' : '';
+    const rec = schedules[dateStr];
+    const name = rec && rec.member_id != null ? (allMembersById[rec.member_id]?.name || `ID:${rec.member_id}`) : '未定';
+    return `<tr>
+      <td style="${labelStyle}">${label}</td>
+      <td>${name}</td>
+    </tr>`;
+  }).join('');
 }
 
 async function addMember() {
@@ -3336,6 +3484,7 @@ async function showPage(name) {
   if (name === 'records') { await renderRecordTable(); }
   if (name === 'holidays') { populateHolidayYearSelect(); await renderHolidaysTable(); }
   if (name === 'nye-duty') { await renderNyeDutyPage(); }
+  if (name === 'nye-duty-record') { await renderNyeDutyRecordPage(); }
   if (name === 'chotome') { renderChotomeTable(); await loadFestivals(); renderFestivalList(); }
 }
 
