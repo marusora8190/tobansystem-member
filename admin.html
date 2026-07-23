@@ -426,6 +426,7 @@
         <button class="btn btn-sm" onclick="exportCSV()">CSV出力</button>
         <button class="btn btn-sm" onclick="printCalendar()">🖨 印刷①</button>
       </div>
+      <div id="cal-decide-bar"></div>
       <div id="print-scale-hint" style="font-size:12px;color:#1a1814;margin-top:-8px;margin-bottom:12px"></div>
 
       <div class="cal-grid" id="cal-dow"></div>
@@ -779,6 +780,7 @@
             <select id="nye-year-select" onchange="renderNyeDutyPage()"></select>
           </div>
         </div>
+        <div id="nye-decide-bar" style="margin-top:8px"></div>
       </div>
       <div class="card">
         <div class="card-title">候補者選び（選択年度）</div>
@@ -909,6 +911,7 @@ let members = [];
 let holidays = {};
 let schedules = {};
 let chotomeTimesData = {};
+let rosterDecisions = {}; // period_key ("2026-07" や "nye-2026") -> { decided_at }
 
 // ロック中／未ロックの状態を表すアイコン（絵文字🔒🔓の代わり）。
 // 絵文字は環境によって小さく・薄く見えづらいため、currentColorで塗りつぶすSVGに統一し、
@@ -1026,6 +1029,7 @@ async function initApp() {
   await loadHolidays().catch(e => console.warn('[holidays]', e.message));
   await loadSchedules().catch(e => console.warn('[schedules]', e.message));
   await loadChotomeTimes().catch(e => console.warn('[chotome_times]', e.message));
+  await loadRosterDecisions().catch(e => console.warn('[rosterDecisions]', e.message));
   renderCalendar();
   populateMemberSelects();
   await ensureMultiYearsLoaded(getMultiYears('mc2-start-year', 'mc2-year-span')).catch(e => console.warn('[annualPlansMulti]', e.message));
@@ -1236,6 +1240,70 @@ async function loadSchedules() {
   if (error) { schedules = {}; return; }
   schedules = {};
   (data || []).forEach(s => { schedules[s.duty_date] = s; });
+}
+
+// =============================================
+// 当番表(当初)決定 — 「決定」した月・年末年始シーズンは member.html 側で当番者名が
+// 表示されるようになる（決定前はまだ調整中として名前を伏せる）。決定後にまれに変更が
+// 必要になった場合も、決定状態を保ったまま通常どおりカレンダー・当番割り当てから
+// 編集でき、保存内容はそのままmember.html側にも反映される。
+// =============================================
+function monthPeriodKey(year, month0) { // month0 は0始まり（Dateのgetmonth()と同じ）
+  return `${year}-${String(month0 + 1).padStart(2, '0')}`;
+}
+function nyePeriodKey(seasonYear) {
+  return `nye-${seasonYear}`;
+}
+
+async function loadRosterDecisions() {
+  const { data, error } = await sbClient.from('roster_decisions').select('*');
+  if (error) { rosterDecisions = {}; return; }
+  rosterDecisions = {};
+  (data || []).forEach(r => { rosterDecisions[r.period_key] = r; });
+}
+
+async function decideRosterPeriod(periodKey, confirmLabel) {
+  if (!confirm(`${confirmLabel}の当番表を決定し、詰員へ公開します。よろしいですか？\n（決定後も、当番表の内容自体はこれまでどおり編集できます）`)) return;
+  const { error } = await sbClient.from('roster_decisions').upsert({ period_key: periodKey, decided_at: new Date().toISOString() }, { onConflict: 'period_key' });
+  if (error) { alert('決定に失敗しました: ' + error.message + '\n（「roster_decisions」テーブルが未作成の可能性があります）'); return; }
+  await loadRosterDecisions();
+  renderCalendar();
+  if (typeof renderNyeDutyPage === 'function') renderNyeDutyPage();
+}
+
+async function undecideRosterPeriod(periodKey, confirmLabel) {
+  if (!confirm(`${confirmLabel}の「決定」を取り消しますか？\n（取り消すと、詰員側では再び当番者名が表示されなくなります）`)) return;
+  const { error } = await sbClient.from('roster_decisions').delete().eq('period_key', periodKey);
+  if (error) { alert('取り消しに失敗しました: ' + error.message); return; }
+  await loadRosterDecisions();
+  renderCalendar();
+  if (typeof renderNyeDutyPage === 'function') renderNyeDutyPage();
+}
+
+function formatDecidedAt(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// カレンダーページ上部に、表示中の月の決定状態（未決定なら目立つ「決定」ボタン、
+// 決定済みなら決定日時のバナー＋取消リンク）を描画する。
+function renderCalDecideBar() {
+  const el = document.getElementById('cal-decide-bar');
+  if (!el) return;
+  const periodKey = monthPeriodKey(calYear, calMonth);
+  const label = `${calYear}年${calMonth + 1}月`;
+  const rec = rosterDecisions[periodKey];
+  if (rec) {
+    el.innerHTML = `<div class="alert alert-success" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span>✓ ${label}の当番表は決定済みです（${formatDecidedAt(rec.decided_at)}決定）。詰員には当番者名が表示されています。</span>
+      <button class="btn btn-sm" onclick="undecideRosterPeriod('${periodKey}', '${label}')">決定を取り消す</button>
+    </div>`;
+  } else {
+    el.innerHTML = `<div style="margin-bottom:12px">
+      <button class="btn btn-primary" style="font-size:15px;padding:10px 20px;font-weight:700" onclick="decideRosterPeriod('${periodKey}', '${label}')">📢 ${label}の当番表(当初)決定</button>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">決定するまで、詰員側の当番表には${label}の当番者名は表示されません。</div>
+    </div>`;
+  }
 }
 
 // =============================================
@@ -1465,6 +1533,28 @@ async function renderNyeDutyPage() {
 
   renderNyeCandidatesSection(seasonYear);
   renderNyeAssignTable(seasonYear);
+  renderNyeDecideBar(seasonYear);
+}
+
+// 年末年始当番予定ページ上部に、選択中シーズンの決定状態（未決定なら目立つ「決定」ボタン、
+// 決定済みなら決定日時のバナー＋取消リンク）を描画する。
+function renderNyeDecideBar(seasonYear) {
+  const el = document.getElementById('nye-decide-bar');
+  if (!el) return;
+  const periodKey = nyePeriodKey(seasonYear);
+  const label = `${seasonYear}年度（12/28〜翌1/4）`;
+  const rec = rosterDecisions[periodKey];
+  if (rec) {
+    el.innerHTML = `<div class="alert alert-success" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <span>✓ ${label}の当番表は決定済みです（${formatDecidedAt(rec.decided_at)}決定）。詰員には当番者名が表示されています。</span>
+      <button class="btn btn-sm" onclick="undecideRosterPeriod('${periodKey}', '${label}')">決定を取り消す</button>
+    </div>`;
+  } else {
+    el.innerHTML = `<div>
+      <button class="btn btn-primary" style="font-size:15px;padding:10px 20px;font-weight:700" onclick="decideRosterPeriod('${periodKey}', '${label}')">📢 ${label}の当番表(当初)決定</button>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">決定するまで、詰員側の当番表には${label}の当番者名は表示されません。</div>
+    </div>`;
+  }
 }
 
 // 列が12/28〜翌1/4の日付、行が氏名のチェックボックス形式の割り当て表。
@@ -3235,6 +3325,7 @@ function renderCalendar() {
     </div>`;
   });
   body.innerHTML = html;
+  renderCalDecideBar();
 }
 
 async function prevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } await loadSchedules().catch(() => {}); renderCalendar(); }
