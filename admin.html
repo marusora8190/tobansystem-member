@@ -811,8 +811,8 @@
       </div>
       <div class="card">
         <div class="card-title">メンバーごとの通算回数</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">年末年始期間（12/28〜1/4）の当番に、年度に関わらずこれまで何回当たったかの通算回数です。上の「年度別 当番一覧」に入力・反映されているすべての記録（システム記録・導入前の記録・手入力を含む）をもとに集計しています。詰員名簿と同じ並び順で表示しています。</p>
-        <div id="nye-duty-body" style="display:flex;flex-wrap:wrap">読み込み中...</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">年末年始期間（12/28〜1/4）の当番に、年度に関わらずこれまで何回当たったかの通算回数です。上の「年度別 当番一覧」に入力・反映されているすべての記録（システム記録・導入前の記録・手入力を含む）をもとに集計しています。回数が多い順に並べています。</p>
+        <div id="nye-duty-body" style="display:flex;flex-direction:column;gap:8px">読み込み中...</div>
       </div>
     </div>
     <div id="page-chotome" class="page">
@@ -1652,13 +1652,28 @@ async function renderNyeDutyRecordPage() {
     if (m) manualCountByMember[m.id] = (manualCountByMember[m.id] || 0) + 1;
   });
 
-  // 詰員名簿と同じ並び順（membersは既にstaff_id順）で、「氏名 回数」のタグ形式で並べて表示する
-  summaryBody.innerHTML = members.map(m => {
+  // 通算回数を計算し、回数が多い順の行に分けて、各行に該当メンバーを
+  // 「氏名 回数」タグ形式（詰員名簿順）で並べて表示する
+  const totalByMember = {};
+  members.forEach(m => {
     const past = (nyePastRecordsByMember[m.id] || []).length;
     const sys = sysCountByMember[m.id] || 0;
     const manual = manualCountByMember[m.id] || 0;
-    const total = past + sys + manual;
-    return `<span class="badge badge-blue" style="margin:2px 6px 2px 0;white-space:nowrap">${m.name} ${total}</span>`;
+    totalByMember[m.id] = past + sys + manual;
+  });
+  const membersByTotal = {};
+  members.forEach(m => {
+    const total = totalByMember[m.id];
+    (membersByTotal[total] = membersByTotal[total] || []).push(m);
+  });
+  const totalsDesc = Object.keys(membersByTotal).map(Number).sort((a, b) => b - a);
+  summaryBody.innerHTML = totalsDesc.map(total => {
+    const tags = membersByTotal[total].map(m =>
+      `<span class="badge badge-blue" style="margin:2px 6px 2px 0;white-space:nowrap">${m.name}</span>`
+    ).join(' ');
+    return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
+      <span style="font-weight:600;min-width:36px">${total}回</span> ${tags}
+    </div>`;
   }).join('');
 }
 
