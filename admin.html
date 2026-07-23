@@ -812,12 +812,7 @@
       <div class="card">
         <div class="card-title">メンバーごとの通算回数</div>
         <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">年末年始期間（12/28〜1/4）の当番に、年度に関わらずこれまで何回当たったかの通算回数です。上の「年度別 当番一覧」に入力・反映されているすべての記録（システム記録・導入前の記録・手入力を含む）をもとに集計しています。詰員名簿と同じ並び順で表示しています。</p>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>氏名</th><th>通算回数</th></tr></thead>
-            <tbody id="nye-duty-body"><tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
-          </table>
-        </div>
+        <div id="nye-duty-body" style="display:flex;flex-wrap:wrap">読み込み中...</div>
       </div>
     </div>
     <div id="page-chotome" class="page">
@@ -1586,14 +1581,14 @@ async function renderNyeDutyRecordPage() {
   const seasonYears = getNyeRecordSeasonYears();
   const colspan = seasonYears.length + 1;
   body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
-  if (summaryBody) summaryBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
+  if (summaryBody) summaryBody.innerHTML = `<div style="color:var(--text-hint)">読み込み中...</div>`;
 
   try {
     await loadSchedules();
     await loadNyePastRecords();
   } catch (e) {
     body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
-    if (summaryBody) summaryBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
+    if (summaryBody) summaryBody.innerHTML = `<div style="color:var(--danger)">読み込み失敗: ${e.message}</div>`;
     return;
   }
 
@@ -1632,7 +1627,7 @@ async function renderNyeDutyRecordPage() {
   if (!summaryBody) return;
 
   if (!members.length) {
-    summaryBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--text-hint)">在籍中のメンバーがいません</td></tr>`;
+    summaryBody.innerHTML = `<div style="color:var(--text-hint)">在籍中のメンバーがいません</div>`;
     return;
   }
 
@@ -1657,16 +1652,13 @@ async function renderNyeDutyRecordPage() {
     if (m) manualCountByMember[m.id] = (manualCountByMember[m.id] || 0) + 1;
   });
 
-  // 詰員名簿と同じ並び順（membersは既にstaff_id順）でそのまま表示する
+  // 詰員名簿と同じ並び順（membersは既にstaff_id順）で、「氏名 回数」のタグ形式で並べて表示する
   summaryBody.innerHTML = members.map(m => {
     const past = (nyePastRecordsByMember[m.id] || []).length;
     const sys = sysCountByMember[m.id] || 0;
     const manual = manualCountByMember[m.id] || 0;
     const total = past + sys + manual;
-    return `<tr>
-      <td style="white-space:nowrap">${m.name}</td>
-      <td style="text-align:center;font-weight:600">${total}</td>
-    </tr>`;
+    return `<span class="badge badge-blue" style="margin:2px 6px 2px 0;white-space:nowrap">${m.name} ${total}</span>`;
   }).join('');
 }
 
