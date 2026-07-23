@@ -240,6 +240,11 @@
     will-change: transform; backface-visibility: hidden; transform: translateZ(0);
   }
   .mc2-table thead tr th { top: 0; box-shadow: 0 2px 0 var(--border); }
+  /* 年末年始当番予定：当番割り当て表の日付見出し行を、縦スクロールしても上部に固定表示する */
+  .nye-assign-table thead th {
+    position: sticky; top: 0; z-index: 5; background: var(--surface);
+    box-shadow: 0 2px 0 var(--border);
+  }
   /* annual2-table（各メンバーの年間設定）だけは、氏名の行・「回数/日祝」の行の
      2行見出しになっているため、2行目は1行目の高さ分だけ下にずらして固定する
      （他のテーブルは見出しが実質1行のみなので、上のtop:0のままでよい） */
@@ -754,8 +759,8 @@
       </div>
     </div>
     <div id="page-nye-duty" class="page">
-      <div class="section-title">年末年始当番予定（12/27〜1/4）</div>
-      <div class="alert alert-info">在籍中の詰員には、加入から辞退（引退）までの間に、年末年始期間（12月27日〜1月4日）の当番に最低3回は当たっていただく方針です。ここでは、各メンバーの通算回数（システム導入前の記録＋このシステムで記録された回数）を確認できます。下の「当番割り当て」欄から、選択中の年度の当番日をその場で割り当てることもできます。</div>
+      <div class="section-title">年末年始当番予定（12/28〜1/4）</div>
+      <div class="alert alert-info">在籍中の詰員には、加入から辞退（引退）までの間に、年末年始期間（12月28日〜1月4日）の当番に最低3回は当たっていただく方針です。ここでは、各メンバーの通算回数（システム導入前の記録＋このシステムで記録された回数）を確認できます。下の「当番割り当て」欄から、選択中の年度の当番日をその場で割り当てることもできます。</div>
       <div class="card">
         <div class="card-title">表示・割り当て対象の年度</div>
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -767,14 +772,14 @@
       </div>
       <div class="card">
         <div class="card-title">候補者選び（選択年度）</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">まず、この年度の年末年始当番（12/27〜1/4）を担当してもらう候補者にチェックを入れ、「人選済み」ボタンを押してください。確定すると、下の「当番割り当て」欄にはチェックした人だけが表示されます。後から人選をやり直したい場合は「候補者を編集」ボタンで戻れます。</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">まず、この年度の年末年始当番（12/28〜1/4）を担当してもらう候補者にチェックを入れ、「人選済み」ボタンを押してください。確定すると、下の「当番割り当て」欄にはチェックした人だけが表示されます。後から人選をやり直したい場合は「候補者を編集」ボタンで戻れます。</p>
         <div id="nye-candidates-wrap"><div style="color:var(--text-hint)">読み込み中...</div></div>
       </div>
       <div class="card">
         <div class="card-title">当番割り当て（選択年度）</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">列が12/27〜翌1/4の日付、行が氏名です。当番に当たる日のチェックボックスにチェックを入れてください。チェックするとすぐに保存されます（すでに他の人にチェックが入っている日を選び直すと、割り当てが上書きされます）。</p>
-        <div class="table-wrap">
-          <table>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">列が12/28〜翌1/4の日付、行が氏名です。当番に当たる日のチェックボックスにチェックを入れてください。チェックするとすぐに保存されます（すでに他の人にチェックが入っている日を選び直すと、割り当てが上書きされます）。日付の行は下にスクロールしても上部に固定表示されます。</p>
+        <div class="table-wrap" style="max-height:520px;overflow-y:auto">
+          <table class="nye-assign-table">
             <thead><tr id="nye-assign-head"></tr></thead>
             <tbody id="nye-assign-body"><tr><td style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
@@ -1273,7 +1278,7 @@ async function updateMemberField(id, field, value) {
 }
 
 // ================================================================
-// 年末年始当番予定（12/27〜1/4の当番実績・通算回数の集計・割り当て）
+// 年末年始当番予定（12/28〜1/4の当番実績・通算回数の集計・割り当て）
 // ================================================================
 const NYE_TARGET_COUNT = 3;
 const NYE_YEAR_MIN = 2023;
@@ -1282,10 +1287,10 @@ const NYE_YEAR_MAX = 2050;
 function isNyeWindowDate(dateStr) {
   const parts = dateStr.split('-');
   const m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
-  return (m === 12 && d >= 27) || (m === 1 && d <= 4);
+  return (m === 12 && d >= 28) || (m === 1 && d <= 4);
 }
 
-// 12/27〜翌1/4の一つのまとまりを「年末年始シーズン」とみなし、
+// 12/28〜翌1/4の一つのまとまりを「年末年始シーズン」とみなし、
 // その開始年（12月側の年）を返す（例：2027-01-02 → 2026）
 function nyeSeasonYear(dateStr) {
   const parts = dateStr.split('-');
@@ -1293,10 +1298,10 @@ function nyeSeasonYear(dateStr) {
   return m === 1 ? y - 1 : y;
 }
 
-// 指定した「シーズン開始年」の12/27〜翌1/4、9日分の日付文字列を返す
+// 指定した「シーズン開始年」の12/28〜翌1/4、8日分の日付文字列を返す
 function nyeSeasonDates(seasonYear) {
   const dates = [];
-  for (let d = 27; d <= 31; d++) dates.push(`${seasonYear}-12-${String(d).padStart(2, '0')}`);
+  for (let d = 28; d <= 31; d++) dates.push(`${seasonYear}-12-${String(d).padStart(2, '0')}`);
   for (let d = 1; d <= 4; d++) dates.push(`${seasonYear + 1}-01-${String(d).padStart(2, '0')}`);
   return dates;
 }
@@ -1322,7 +1327,7 @@ function populateNyeYearSelectFor(selId) {
   if (sel.options.length) return; // 一度作ったら選択状態を維持する
   const opts = [];
   for (let y = NYE_YEAR_MIN; y <= NYE_YEAR_MAX; y++) {
-    opts.push(`<option value="${y}">${y}年末〜${y + 1}年始（12/27〜翌1/4）</option>`);
+    opts.push(`<option value="${y}">${y}年末〜${y + 1}年始（12/28〜翌1/4）</option>`);
   }
   sel.innerHTML = opts.join('');
   sel.value = String(getDefaultNyeSeasonYear());
@@ -1422,7 +1427,7 @@ function nyeMonthDayLabel(md) {
   return `${mo}/${da}`;
 }
 
-const NYE_MONTH_DAY_OPTIONS = ['12-27','12-28','12-29','12-30','12-31','01-01','01-02','01-03','01-04'];
+const NYE_MONTH_DAY_OPTIONS = ['12-28','12-29','12-30','12-31','01-01','01-02','01-03','01-04'];
 
 function buildNyePastCell(memberId) {
   const recs = (nyePastRecordsByMember[memberId] || []).slice().sort((a, b) => a.season_year - b.season_year);
@@ -1510,7 +1515,7 @@ async function renderNyeDutyPage() {
   }).join('');
 }
 
-// 列が12/27〜翌1/4の日付、行が氏名のチェックボックス形式の割り当て表。
+// 列が12/28〜翌1/4の日付、行が氏名のチェックボックス形式の割り当て表。
 // チェックを入れる/外すことで annual_roster をその場で更新する。
 function renderNyeAssignTable(seasonYear) {
   const head = document.getElementById('nye-assign-head');
@@ -1576,7 +1581,7 @@ async function onNyeAssignCheckboxChange(el) {
   await renderNyeDutyPage();
 }
 
-// 「年末年始当番記録」ページ：選択年度の12/27〜1/4の日付ごとに、当番者名を確認専用で表示する。
+// 「年末年始当番記録」ページ：選択年度の12/28〜1/4の日付ごとに、当番者名を確認専用で表示する。
 // 記録ページで表示する4年度分（過去3年度＋来年度＝直近シーズンを基準に3年前〜1年分）
 function getNyeRecordSeasonYears() {
   const base = getDefaultNyeSeasonYear();
@@ -1600,8 +1605,8 @@ async function renderNyeDutyRecordPage() {
 
   head.innerHTML = `<th style="white-space:nowrap">日付</th>` + seasonYears.map(sy => `<th style="text-align:center;white-space:nowrap">${sy}年度</th>`).join('');
 
-  // 月日部分（12/27〜1/4）は全年度共通。曜日・祝日は年度ごとに異なるため、セル単位で赤字表示する。
-  const monthDays = ['12-27', '12-28', '12-29', '12-30', '12-31', '01-01', '01-02', '01-03', '01-04'];
+  // 月日部分（12/28〜1/4）は全年度共通。曜日・祝日は年度ごとに異なるため、セル単位で赤字表示する。
+  const monthDays = ['12-28', '12-29', '12-30', '12-31', '01-01', '01-02', '01-03', '01-04'];
   body.innerHTML = monthDays.map(md => {
     const [mo, da] = md.split('-').map(Number);
     const cells = seasonYears.map(sy => {
