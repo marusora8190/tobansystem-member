@@ -299,6 +299,7 @@ const DOW_JP = ['日','月','火','水','木','金','土'];
 const REMEMBER_KEY = 'toban_member_code';
 
 let holidays = {};
+let rosterDecisions = {}; // period_key ("2026-07" や "nye-2026") -> { decided_at } ※当番表作成者が「決定」した月・年末年始シーズンのみ格納される
 let currentMember = null;   // { id, member_no, name, department, phone }
 let calYear, calMonth;      // 1-12
 let rosterYear, rosterMonth; // 当番表タブ用（支障日入力タブとは独立して月を移動できる）
@@ -362,6 +363,38 @@ async function loadHolidays() {
     const { data } = await sbClient.from('holidays').select('*');
     (data || []).forEach(h => { holidays[h.date] = h.name; });
   } catch (e) { /* 祝日表示は補助情報のため失敗しても致命的ではない */ }
+}
+
+// =============================================
+// 当番表(当初)決定 — 当番表作成者が「決定」した月・年末年始シーズンのみ、
+// 下記の当番表タブで当番者名を表示する（決定前はまだ調整中のため、氏名を一切表示しない）。
+// =============================================
+function isNyeWindowDate(dateStr) {
+  const parts = dateStr.split('-');
+  const m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  return (m === 12 && d >= 28) || (m === 1 && d <= 4);
+}
+function nyeSeasonYearOf(dateStr) {
+  const parts = dateStr.split('-');
+  const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  return m === 1 ? y - 1 : y;
+}
+function periodKeyForDutyDate(dateStr) {
+  if (isNyeWindowDate(dateStr)) return `nye-${nyeSeasonYearOf(dateStr)}`;
+  const parts = dateStr.split('-');
+  return `${parts[0]}-${parts[1]}`;
+}
+function isDutyDateDecided(dateStr) {
+  return !!rosterDecisions[periodKeyForDutyDate(dateStr)];
+}
+
+async function loadRosterDecisions() {
+  try {
+    const { data, error } = await sbClient.from('roster_decisions').select('*');
+    if (error) { rosterDecisions = {}; return; }
+    rosterDecisions = {};
+    (data || []).forEach(r => { rosterDecisions[r.period_key] = r; });
+  } catch (e) { rosterDecisions = {}; }
 }
 
 // =============================================
@@ -457,6 +490,7 @@ async function enterAsMember(member, token) {
   if (rosterLegendLabel) rosterLegendLabel.textContent = `${member.name}さんの当番日`;
 
   await loadHolidays();
+  await loadRosterDecisions();
   const today = new Date();
   calYear = today.getFullYear();
   calMonth = today.getMonth() + 1;
@@ -736,6 +770,7 @@ async function renderRosterCalendar() {
 
   const loadingEl = document.getElementById('roster-loading');
   loadingEl.textContent = '読み込み中...';
+  await loadRosterDecisions();
   const rosterMap = await fetchRosterForRange(dayList);
   loadingEl.textContent = '';
 
@@ -751,8 +786,11 @@ async function renderRosterCalendar() {
     const isHol = !!holidays[dateStr];
     const isNextMonth = day.m !== rosterMonth;
     const entry = rosterMap[dateStr];
-    const dutyName = entry && entry.members ? entry.members.name : '';
-    const isMyDuty = !!(entry && currentMember && entry.member_id === currentMember.id);
+    // 当番表作成者がこの日を含む月・年末年始シーズンを「決定」するまでは、
+    // 割り当てが決まっていても当番者名を一切表示しない（変更の可能性があるため）。
+    const decided = isDutyDateDecided(dateStr);
+    const dutyName = (decided && entry && entry.members) ? entry.members.name : '';
+    const isMyDuty = !!(decided && entry && currentMember && entry.member_id === currentMember.id);
 
     let cls = 'day-cell roster-cell';
     if (dow === 0 || isHol) cls += ' sunday-col';
