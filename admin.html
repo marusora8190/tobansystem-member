@@ -245,6 +245,16 @@
     position: sticky; top: 0; z-index: 5; background: var(--surface);
     box-shadow: 0 2px 0 var(--border);
   }
+  /* 年末年始当番記録：「年度別 当番一覧」の手入力欄は、未入力時も入力済み時も
+     システム記録・導入前の記録の氏名（枠なしのプレーンテキスト）と見た目をそろえるため、
+     枠線・背景を通常時は透明にし、クリック（フォーカス）・ホバー時のみ枠を表示する */
+  .nye-manual-input {
+    border-color: transparent; background: transparent; color: var(--text);
+  }
+  .nye-manual-input::placeholder { color: var(--text-hint); }
+  .nye-manual-input:hover, .nye-manual-input:focus {
+    border-color: var(--border); background: var(--surface);
+  }
   /* annual2-table（各メンバーの年間設定）だけは、氏名の行・「回数/日祝」の行の
      2行見出しになっているため、2行目は1行目の高さ分だけ下にずらして固定する
      （他のテーブルは見出しが実質1行のみなので、上のtop:0のままでよい） */
@@ -1659,7 +1669,7 @@ async function renderNyeDutyRecordPage() {
       }
       // システムにも導入前の記録にも一致するデータがない日は、手入力欄（自由記入）を表示する
       const manualVal = rec?.manual_assignee || '';
-      return `<td style="text-align:center;${style}"><input type="text" value="${escapeAttr(manualVal)}" data-date="${dateStr}" placeholder="未定（手入力可）" style="width:92px;font-size:12px;padding:2px 4px;text-align:center" onchange="onNyeManualAssigneeChange(this)"></td>`;
+      return `<td style="text-align:center;${style}"><input type="text" class="nye-manual-input" value="${escapeAttr(manualVal)}" data-date="${dateStr}" placeholder="未定（手入力可）" style="width:92px;font-size:12px;padding:2px 4px;text-align:center" onchange="onNyeManualAssigneeChange(this)"></td>`;
     }).join('');
     return `<tr><td style="white-space:nowrap">${mo}/${da}</td>${cells}</tr>`;
   }).join('');
