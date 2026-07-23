@@ -798,10 +798,10 @@
     </div>
     <div id="page-nye-duty-record" class="page">
       <div class="section-title">年末年始当番記録</div>
-      <div class="alert alert-info">2013年度から来年度（未来）分までを、日付ごとにまとめて確認できる記録ページです。日付ごとの割り当ての変更は「年末年始当番予定」ページから行ってください。下の「メンバーごとの通算回数」欄では、導入前の記録の追加・削除ができます。</div>
+      <div class="alert alert-info">2013年度から来年度（未来）分までを、日付ごとにまとめて確認できる記録ページです。日付ごとの割り当ての変更や、過去の記録の入力は「年度別 当番一覧」の該当セルから直接行ってください。</div>
       <div class="card">
         <div class="card-title">年度別 当番一覧（2013年度＋来年度）</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">日曜・祝日にあたるセルは赤字で表示しています。下の「メンバーごとの通算回数」欄で日付が分かる形で登録した導入前の記録は、該当する日付のセルに自動で反映されます。それ以外の、システムにも記録がない日は、セルに直接お名前を手入力できます（名簿にない名前でも構いません）。</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">日曜・祝日にあたるセルは赤字で表示しています。以前登録された導入前の記録（年・日付が分かるもの）は、該当する日付のセルに自動で反映されます。それ以外の、システムにも記録がない日は、セルに直接お名前を手入力できます（名簿にない名前でも構いません）。</p>
         <div class="table-wrap">
           <table>
             <thead><tr id="nye-record-head"></tr></thead>
@@ -811,11 +811,11 @@
       </div>
       <div class="card">
         <div class="card-title">メンバーごとの通算回数</div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">「導入前の記録」は、本システム導入（2026年）より前に年末年始当番を経験した「年＋日付」を1件ずつ追加できます（日付が分からない場合は「日付不明」でも構いません）。追加した記録の件数が、そのまま導入前の回数として通算回数に加算されます。「システム記録分」「通算回数」は、年度に関わらず、これまでの全期間の実績です。詰員名簿と同じ並び順で表示しています。</p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">年末年始期間（12/28〜1/4）の当番に、年度に関わらずこれまで何回当たったかの通算回数です。上の「年度別 当番一覧」に入力・反映されているすべての記録（システム記録・導入前の記録・手入力を含む）をもとに集計しています。詰員名簿と同じ並び順で表示しています。</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>氏名</th><th>導入前の記録（年・日付）</th><th>システム記録分</th><th>通算回数</th></tr></thead>
-            <tbody id="nye-duty-body"><tr><td colspan="4" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
+            <thead><tr><th>氏名</th><th>通算回数</th></tr></thead>
+            <tbody id="nye-duty-body"><tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1448,55 +1448,10 @@ function getNyePastRecordsByDate() {
   return map;
 }
 
-function nyeMonthDayLabel(md) {
-  if (!md) return '日付不明';
-  const [mo, da] = md.split('-').map(Number);
-  return `${mo}/${da}`;
-}
-
-const NYE_MONTH_DAY_OPTIONS = ['12-28','12-29','12-30','12-31','01-01','01-02','01-03','01-04'];
-
-function buildNyePastCell(memberId) {
-  const recs = (nyePastRecordsByMember[memberId] || []).slice().sort((a, b) => a.season_year - b.season_year);
-  const chips = recs.map(r =>
-    `<span class="badge badge-blue" style="cursor:pointer" title="クリックで削除" onclick="deleteNyePastRecord(${r.id})">${r.season_year}年 ${nyeMonthDayLabel(r.month_day)} ✕</span>`
-  ).join(' ');
-  const dateOptions = NYE_MONTH_DAY_OPTIONS.map(md => `<option value="${md}">${nyeMonthDayLabel(md)}</option>`).join('')
-    + `<option value="">日付不明</option>`;
-  return `
-    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${chips || '<span style="color:var(--text-hint);font-size:11px">記録なし</span>'}</div>
-    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-      <input type="number" id="nye-past-year-${memberId}" placeholder="年" style="width:60px;font-size:11px;padding:2px 4px" min="1980" max="2099">
-      <select id="nye-past-date-${memberId}" style="width:88px;font-size:11px;padding:2px 4px">${dateOptions}</select>
-      <button class="btn btn-sm" onclick="addNyePastRecord('${memberId}')">+ 追加</button>
-    </div>`;
-}
-
-async function addNyePastRecord(memberId) {
-  const yearInput = document.getElementById(`nye-past-year-${memberId}`);
-  const dateSelect = document.getElementById(`nye-past-date-${memberId}`);
-  const year = parseInt(yearInput?.value);
-  if (!year || year < 1980 || year > 2099) { alert('年を正しく入力してください（例：2020）'); return; }
-  const monthDay = dateSelect?.value || null;
-  try {
-    const { error } = await sbClient.from('nye_duty_past_records').insert({ member_id: Number(memberId), season_year: year, month_day: monthDay });
-    if (error) throw error;
-  } catch (e) {
-    alert('記録の追加に失敗しました: ' + e.message);
-  }
-  await renderNyeDutyRecordPage();
-}
-
-async function deleteNyePastRecord(recordId) {
-  if (!confirm('この記録を削除しますか？')) return;
-  try {
-    const { error } = await sbClient.from('nye_duty_past_records').delete().eq('id', recordId);
-    if (error) throw error;
-  } catch (e) {
-    alert('削除に失敗しました: ' + e.message);
-  }
-  await renderNyeDutyRecordPage();
-}
+// 「導入前の記録（年＋日付）」の個別追加・削除フォームは廃止し、以後の過去データ入力は
+// 「年度別 当番一覧」の該当セルへの直接手入力に一本化した。
+// nyePastRecordsByMember/loadNyePastRecords/getNyePastRecordsByDateは、既存登録済みデータを
+// 通算回数に加算し、日付が分かるものはマトリクスに反映するために引き続き使用する。
 
 async function renderNyeDutyPage() {
   const assignBody = document.getElementById('nye-assign-body');
@@ -1631,14 +1586,14 @@ async function renderNyeDutyRecordPage() {
   const seasonYears = getNyeRecordSeasonYears();
   const colspan = seasonYears.length + 1;
   body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
-  if (summaryBody) summaryBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
+  if (summaryBody) summaryBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--text-hint)">読み込み中...</td></tr>`;
 
   try {
     await loadSchedules();
     await loadNyePastRecords();
   } catch (e) {
     body.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
-    if (summaryBody) summaryBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
+    if (summaryBody) summaryBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--danger)">読み込み失敗: ${e.message}</td></tr>`;
     return;
   }
 
@@ -1677,7 +1632,7 @@ async function renderNyeDutyRecordPage() {
   if (!summaryBody) return;
 
   if (!members.length) {
-    summaryBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-hint)">在籍中のメンバーがいません</td></tr>`;
+    summaryBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--text-hint)">在籍中のメンバーがいません</td></tr>`;
     return;
   }
 
@@ -1686,15 +1641,30 @@ async function renderNyeDutyRecordPage() {
   const sysCountByMember = {};
   rows.forEach(r => { sysCountByMember[r.member_id] = (sysCountByMember[r.member_id] || 0) + 1; });
 
+  // 「年度別 当番一覧」のセルに手入力（manual_assignee）された氏名も、現在の詰員名簿と
+  // 名前が一致するものは通算回数に加算する（システム記録・導入前の記録と二重計上しないよう、
+  // すでにmember_idが入っている日、またはgetNyePastRecordsByDateで表示済みの日は対象外）
+  // ※pastRecordsByDateは上のマトリクス描画時に既に計算済みのものを再利用する
+  const manualCountByMember = {};
+  Object.keys(schedules).forEach(dateStr => {
+    if (!isNyeWindowDate(dateStr)) return;
+    const rec = schedules[dateStr];
+    if (rec.member_id != null) return;
+    if (pastRecordsByDate[dateStr] && pastRecordsByDate[dateStr].length) return;
+    const name = (rec.manual_assignee || '').trim();
+    if (!name) return;
+    const m = members.find(mm => mm.name === name);
+    if (m) manualCountByMember[m.id] = (manualCountByMember[m.id] || 0) + 1;
+  });
+
   // 詰員名簿と同じ並び順（membersは既にstaff_id順）でそのまま表示する
   summaryBody.innerHTML = members.map(m => {
     const past = (nyePastRecordsByMember[m.id] || []).length;
     const sys = sysCountByMember[m.id] || 0;
-    const total = past + sys;
+    const manual = manualCountByMember[m.id] || 0;
+    const total = past + sys + manual;
     return `<tr>
       <td style="white-space:nowrap">${m.name}</td>
-      <td>${buildNyePastCell(m.id)}</td>
-      <td style="text-align:center">${sys}</td>
       <td style="text-align:center;font-weight:600">${total}</td>
     </tr>`;
   }).join('');
