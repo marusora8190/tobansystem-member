@@ -1761,8 +1761,11 @@ async function renderNyeDutyRecordPage() {
     const tags = membersByTotal[total].map(m =>
       `<span class="badge badge-blue" style="margin:2px 6px 2px 0;white-space:nowrap">${m.name}</span>`
     ).join(' ');
-    return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
-      <span style="font-weight:600;min-width:36px">${total}回</span> ${tags}
+    // 「◯回」ラベルと名前タグを別々のflexコンテナに分けることで、名前が折り返した2行目以降が
+    // ラベルの真下ではなく、1人目の名前タグの真下（インデントされた位置）に揃うようにする。
+    return `<div style="display:flex;align-items:flex-start;gap:6px">
+      <span style="font-weight:600;min-width:36px;flex-shrink:0;padding-top:2px">${total}回</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${tags}</div>
     </div>`;
   }).join('');
 }
